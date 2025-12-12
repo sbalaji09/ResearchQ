@@ -50,3 +50,26 @@ def remove_repeated_headers_footers(pages_text: list[str], header_lines: int = 2
         print(f"[DEBUG] Cleaned page {page_idx+1}: {len(lines)} lines")
     
     return cleaned_pages
+
+def main():
+    pdf_path = Path("")
+
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"Could not find {pdf_path}. Make sure the PDF is in the same folder")
+    
+    pages_text = extract_text_from_pdf(pdf_path)
+
+    pages_text_no_hf = remove_repeated_headers_footers(pages_text)
+
+    full_text = "\n\n=== PAGE BREAK ===\n\n".join(pages_text_no_hf)
+
+    print("\n--- Preview of extracted text (first 1000 characters) ---\n")
+    print(full_text[:1000])
+    print("\n--- End of preview ---\n")
+
+    output_path = Path("paper_extracted.txt")
+    output_path.write_text(full_text, encoding="utf-8")
+    print(f"Saved full extracted text to {output_path.resolve()}")
+
+if __name__ == "__main__":
+    main()
