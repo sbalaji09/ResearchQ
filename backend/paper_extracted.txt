@@ -1,10 +1,55 @@
+The EUROCALL Review, Volume 25, No. 2, September 2017
+18
 Research paper
 A look at advanced learners’ use of mobile devices for
+English language study: Insights from interview data
+Mariusz Kruk
+University of Zielona Gora, Poland
+______________________________________________________________
+mkruk @ uz.zgora.pl
+Abstract
+The paper discusses the results of a study which explored advanced learners of English
+engagement with their mobile devices to develop learning experiences that meet their
+needs and goals as foreign language learners. The data were collected from 20 students
+by means of a semi -structured interview. The gathered data were subjected to
+qualitative and quantitative analysis. The results of the study demonstrated that , on the
+one hand , some subjects manifested heightened awareness relating to the
+advantageous role of mobile devices in their learning endeavors, their ability to reach
+for suitable tools and retrieve necessary information so as to achieve their goals, meet
+their needs and adjust their learning of English to their personal learning styles, and on
+the other, a rather intuitive and/or ad hoc use of their mobile devices in the classroom.
+Keywords: Learner autonomy, mobile devices, advanced EFL learners, learning
+English.
+1. Introduction
+Mobile devices, smartphones and tablet computers in particular, have generated a lot of
+interest among researchers in recent years (Byrne & Diem, 2014). This is b ecause the
+opportunities these new technologies may offer (e.g. individualized learning, the variety
+of mobile apps available, easy access to the internet) and/or the fact tha t they are
+increasingly more common among learners make them an important and pot entially
+useful addition to formal and informal language learning.
+According to Benson (2011), there has always been a connection between educational
+technologies and learner autonomy to the extent that they have often been intended for
+independent practice. It should be noted, however, that this link and “future enquiry
+and practice into technology -mediated learner autonomy will need to be increasingly
+aligned to the tools, settings, and activities that are of significance to language learners”
+(Reinders & White, 2016, p. 151). Reinders and White (2016) further argue that  as long
+as “the potential range of settings, tools, and experiences is now virtually limitless,
+individuals need to be increasingly adept at critical adaptive learning in order to benefit
+from and contribute effectively to those settings” (p. 151). Beyond doubt, contemporary
+language teachers should equip foreign/second language learners with appropriate
+knowledge concerning the affordances of mobile devices for language study and they
+should prepare them for effective usage of such devices for this purpos e. It is also of
+paramount importance, for both researchers and practitioners, to comprehend the link
+between the modalities of the language learners' organization of their own learning
+experiences and environments and the role mobile technologies, in part icular
+smartphones and tablets, play in these contexts.
+Taking into consideration the above -mentioned issues, the study reported in this article
+investigated ways advanced English language students use their mobile devices (i.e.
+smartphones and tablet comp uters) for their language learning. The article commences
+with a short overview of relevant literature. Next, the design of the study is described,
 
 === PAGE BREAK ===
 
-The EUROCALL Review, Volume 25, No. 2, September 2017
-19
 namely a research question, description of participants, data collection tools and
 analysis. This is followe d by the presentation of the results of the study. The article
 closes with discussion and conclusions.
@@ -63,8 +108,6 @@ thus it is difficult to achieve and is not invariably permanent (Reinders, 2011)
 
 === PAGE BREAK ===
 
-The EUROCALL Review, Volume 25, No. 2, September 2017
-20
 2.2. Autonomy and new technologies
 As stated in the previous section, the concept of autonomy has been one of the most
 researched areas in the field of second/foreign language learning and teaching over the
@@ -125,8 +168,6 @@ language instruction (e.g. Kukulska-Hulme et al., 2015).
 
 === PAGE BREAK ===
 
-The EUROCALL Review, Volume 25, No. 2, September 2017
-21
 3. Method
 3.1. Research question
 One of the questions related to future research and practice in technology -mediated
@@ -185,8 +226,6 @@ English language study?
 
 === PAGE BREAK ===
 
-The EUROCALL Review, Volume 25, No. 2, September 2017
-22
  Do you organize regular formal or informal mobile English language learning
 sessions?
  What do you learn most frequently by means of your mobile device(s)? Why
@@ -245,8 +284,6 @@ S7 female smartphone and tablet 5 years fairly experienced
 
 === PAGE BREAK ===
 
-The EUROCALL Review, Volume 25, No. 2, September 2017
-23
 S8 female smartphone 2 years fairly experienced
 S9 male smartphone 4 years not very experienced
 3rd year
@@ -294,8 +331,6 @@ skills (e.g.  TED, online newspapers,  YouTube), vocabulary (e. g. 6 Minute
 
 === PAGE BREAK ===
 
-The EUROCALL Review, Volume 25, No. 2, September 2017
-24
 English, PONS, Google Translate ) and having access to language materials
 (e.g. Academica). Finally, some students used their MobDs in order to read language
 materials downloaded from the internet (e.g. PDF files). The following responses
@@ -353,8 +388,6 @@ or any other classes at the university. This is not to say, of course, that the 
 
 === PAGE BREAK ===
 
-The EUROCALL Review, Volume 25, No. 2, September 2017
-25
 referred their students to electronic or online resources; however, they did not ask
 students to use them in classes, they did not recommend any mobile apps or design
 language tasks which required  using such devices in order to solve them.
@@ -413,8 +446,6 @@ it takes me, say, t en seconds (...) this way I can devote less time to looking 
 
 === PAGE BREAK ===
 
-The EUROCALL Review, Volume 25, No. 2, September 2017
-26
 information and more on language production, on the use of English ... there is
 less time used but it’s more effective. (S14)
 It is also interesting to note that the use of mobile devices migh t be valuable for
@@ -475,8 +506,6 @@ the same institution and all studied English. Yet another weakness may concern t
 
 === PAGE BREAK ===
 
-The EUROCALL Review, Volume 25, No. 2, September 2017
-27
 data collection instrument, namely the semi -structured interview which was conducted
 only once. Perhaps a different set of questions, their wording or a series of such
 interviews carried out over a particular period of time (say one academic year) may
@@ -531,8 +560,6 @@ through study abroad. Language Learning & Technology, 5, 87-109.
 
 === PAGE BREAK ===
 
-The EUROCALL Review, Volume 25, No. 2, September 2017
-28
 Little, D. (2009). Language learner autonomy and the European Language Portfolio:
 Two L2 English examples. Language Teaching, 42, 222-233.
 Little, D. (1991).  Learner autonomy 1: Definitions, issues and problems . Dublin:
