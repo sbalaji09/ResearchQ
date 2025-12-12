@@ -42,7 +42,7 @@ def remove_repeated_headers_footers(pages_text: list[str], header_lines: int = 2
         if header_candidate and lines[:header_lines] == header_candidate:
             lines = lines[header_lines:]
         
-        if footer_candidate and lines[-footer_candidate:] == footer_candidate:
+        if footer_candidate and lines[-footer_lines:] == footer_candidate:
             lines = lines[:footer_lines]
         
         cleaned_pages.append("\n".join(lines))
@@ -52,7 +52,7 @@ def remove_repeated_headers_footers(pages_text: list[str], header_lines: int = 2
     return cleaned_pages
 
 def main():
-    pdf_path = Path("")
+    pdf_path = Path("test_papers/research_paper.pdf")
 
     if not pdf_path.exists():
         raise FileNotFoundError(f"Could not find {pdf_path}. Make sure the PDF is in the same folder")
