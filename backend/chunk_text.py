@@ -13,6 +13,7 @@ def simple_tokenize(text: str) -> List[str]:
     return text.split()
 
 # splits a list of tokens into overlapping chunks
+# ex: chunk 1 = tokens[0:500]; chunk 2 = tokens[450:950]; chunk 3 = tokens[900:1400]
 def chunk_tokens(tokens: List[str], chunk_size: int = 500, overlap: int = 50) -> List[str]:
     if chunk_size <= 0:
         raise ValueError("Chunk size must be greater than 0")
@@ -24,3 +25,19 @@ def chunk_tokens(tokens: List[str], chunk_size: int = 500, overlap: int = 50) ->
         raise ValueError("overlap must be smaller than chunk_size")
     
     chunks: List[str] = []
+
+    step = chunk_size - overlap
+
+    start = 0
+    n_tokens = len(tokens)
+
+    while start < n_tokens:
+        end = start + chunk_size
+        chunk_tokens = tokens[start:end]
+
+        chunk_text = " ".join(chunk_tokens)
+        chunks.append(chunk_text)
+
+        start += step
+    
+    return chunks
