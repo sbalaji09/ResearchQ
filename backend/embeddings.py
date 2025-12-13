@@ -51,7 +51,7 @@ def store_in_pinecone(vectors, batch_limit=100):
     upsert_data = []
     for vector_data in vectors:
         upsert_data.append(
-            (vector_data["id"], vector_data["values"], vector_data("metadata"))
+            (vector_data["id"], vector_data["values"], vector_data["metadata"])
         )
 
         if len(upsert_data) >= batch_limit:
