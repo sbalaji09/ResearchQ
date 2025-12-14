@@ -234,9 +234,9 @@ def split_into_sentences(text: str) -> List[str]:
 def create_chunks_hierarchical(
     text: str,
     document_id: str = "doc",
-    small_chunk_size: int = 200,    # For precise retrieval
-    large_chunk_size: int = 600,    # For context in generation
-    overlap_sentences: int = 2
+    small_chunk_size: int = 400,    # Increased for better context
+    large_chunk_size: int = 800,    # For context in generation
+    overlap_sentences: int = 3      # More overlap for continuity
 ) -> List[Chunk]:
     """
     Create hierarchical chunks at multiple granularities
@@ -542,8 +542,8 @@ def chunk_document(
     text: str,
     document_id: str = "doc",
     strategy: str = "hierarchical",  # "hierarchical", "paragraph", or "sentence"
-    chunk_size: int = 300,
-    overlap: int = 2,
+    chunk_size: int = 400,           # Optimal balance: context + focus
+    overlap: int = 3,                # More overlap for better continuity
     add_synthetic: bool = True,
 ) -> List[Chunk]:
     """

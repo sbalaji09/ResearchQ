@@ -91,30 +91,60 @@ def expand_query(query: str) -> List[str]:
 # 2. HYBRID SEARCH - Combine semantic and keyword search
 # =============================================================================
 
-def compute_bm25_score(query: str, document: str) -> float:
+def compute_bm25_score(query: str, document: str, k1: float = 1.5, b: float = 0.75) -> float:
     """
-    Simple BM25-like keyword matching score
-    
-    For production, use rank_bm25 library or Elasticsearch
+    Improved BM25 keyword matching score with proper term weighting
+
+    Args:
+        query: Query string
+        document: Document text
+        k1: Term frequency saturation parameter (default 1.5)
+        b: Length normalization parameter (default 0.75)
     """
-    query_terms = set(query.lower().split())
+    from collections import Counter
+
+    query_terms = query.lower().split()
     doc_terms = document.lower().split()
-    doc_term_set = set(doc_terms)
-    
-    # Term frequency
-    tf_scores = []
-    for term in query_terms:
-        if term in doc_term_set:
-            tf = doc_terms.count(term)
-            # BM25-like saturation
-            tf_score = tf / (tf + 1.5)
-            tf_scores.append(tf_score)
-    
-    if not tf_scores:
+
+    if not query_terms or not doc_terms:
         return 0.0
-    
-    # Normalize by query length
-    return sum(tf_scores) / len(query_terms)
+
+    # Term frequency in document
+    doc_tf = Counter(doc_terms)
+    doc_length = len(doc_terms)
+    avg_doc_length = 400  # Approximate average from our chunks
+
+    score = 0.0
+    matched_terms = 0
+
+    for term in set(query_terms):
+        if term in doc_tf:
+            # Term frequency component
+            tf = doc_tf[term]
+
+            # Length normalization
+            norm_factor = (1 - b) + b * (doc_length / avg_doc_length)
+
+            # BM25 formula
+            term_score = (tf * (k1 + 1)) / (tf + k1 * norm_factor)
+
+            # IDF approximation (assume moderate rarity)
+            # In full BM25, this would be log((N - df + 0.5) / (df + 0.5))
+            # We approximate with a constant boost for matched terms
+            idf = 1.5
+
+            score += term_score * idf
+            matched_terms += 1
+
+    if matched_terms == 0:
+        return 0.0
+
+    # Normalize by query length and add coverage bonus
+    coverage = matched_terms / len(set(query_terms))
+    normalized_score = (score / len(set(query_terms))) * (0.7 + 0.3 * coverage)
+
+    # Scale to [0, 1] range with sigmoid-like function
+    return min(1.0, normalized_score / 3.0)
 
 
 def hybrid_search(

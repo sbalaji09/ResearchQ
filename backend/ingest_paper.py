@@ -53,7 +53,8 @@ def ingest_paper(pdf_path: Path, pdf_id: str, clear_existing: bool = False):
         text=full_text,
         document_id=pdf_id,
         strategy="hierarchical",  # Section-aware, multi-level chunks
-        chunk_size=200,            # Smaller = more focused
+        chunk_size=400,            # Optimal: enough context, still focused
+        overlap=3,                 # More overlap for continuity
         add_synthetic=True,        # Add synthetic summary chunks
     )
 

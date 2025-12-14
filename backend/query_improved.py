@@ -23,41 +23,55 @@ pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 def query_with_section_boost(
     question: str,
     top_k: int = 10,
-    boost_factor: float = 1.5,
+    boost_factor: float = 2.0,  # Stronger boost for better signal
+    use_reranking: bool = True,
 ) -> list:
     """
-    Query with section-aware boosting for better precision
+    Query with section-aware boosting and optional reranking for better precision
 
     Improvements:
     1. Detects question type (methods, results, limitations, etc.)
     2. Boosts chunks from relevant sections
     3. Hybrid ranking: semantic + keyword + section relevance
+    4. Optional cross-encoder reranking for precision
+    5. Multi-query expansion for better recall
     """
 
-    # Step 1: Embed the question
-    response = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=question
-    )
-    question_embedding = response.data[0].embedding
+    # Step 1: Expand query for better recall
+    expanded_queries = expand_query(question)
+    all_candidates = {}  # chunk_id -> best result
 
-    # Step 2: Get candidates from Pinecone (get more than needed)
-    index_name = os.environ.get("PINECONE_INDEX_NAME")
-    index = pc.Index(index_name)
+    for query_variant in expanded_queries[:3]:  # Use top 3 variants
+        # Embed the query
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=query_variant
+        )
+        query_embedding = response.data[0].embedding
 
-    results = index.query(
-        vector=question_embedding,
-        top_k=top_k * 2,  # Get extra candidates for reranking
-        include_metadata=True
-    )
+        # Get candidates from Pinecone
+        index_name = os.environ.get("PINECONE_INDEX_NAME")
+        index = pc.Index(index_name)
 
-    # Step 3: Detect relevant sections based on question
+        results = index.query(
+            vector=query_embedding,
+            top_k=top_k * 3,  # Get more candidates for reranking
+            include_metadata=True
+        )
+
+        # Aggregate results (keep highest scoring variant)
+        for match in results['matches']:
+            chunk_id = match['id']
+            if chunk_id not in all_candidates or match['score'] > all_candidates[chunk_id]['score']:
+                all_candidates[chunk_id] = match
+
+    # Step 2: Detect relevant sections based on question
     relevant_sections = detect_question_type(question)
 
-    # Step 4: Hybrid scoring (semantic + keyword + section boost)
+    # Step 3: Hybrid scoring (semantic + keyword + section boost)
     scored_results = []
 
-    for match in results['matches']:
+    for chunk_id, match in all_candidates.items():
         semantic_score = match['score']
         text = match['metadata'].get('text', '')
         section = match['metadata'].get('section', '')
@@ -65,11 +79,12 @@ def query_with_section_boost(
         # Keyword score (BM25-like)
         keyword_score = compute_bm25_score(question, text)
 
-        # Section boost
+        # Section boost (stronger signal)
         section_boost = boost_factor if section in relevant_sections else 1.0
 
-        # Combined score
-        final_score = (semantic_score * 0.7 + keyword_score * 0.3) * section_boost
+        # Combined score with adjusted weights
+        # Give more weight to keyword matching for precision
+        final_score = (semantic_score * 0.6 + keyword_score * 0.4) * section_boost
 
         scored_results.append({
             'id': match['id'],
@@ -83,8 +98,47 @@ def query_with_section_boost(
             'metadata': match['metadata'],
         })
 
-    # Step 5: Re-rank by final score
+    # Step 4: Re-rank by final score
     scored_results.sort(key=lambda x: x['final_score'], reverse=True)
+
+    # Step 5: Optional cross-encoder reranking
+    if use_reranking and len(scored_results) > 0:
+        try:
+            from sentence_transformers import CrossEncoder
+
+            # Use a lightweight cross-encoder
+            model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+
+            # Take top candidates for reranking (expensive operation)
+            candidates_to_rerank = scored_results[:min(20, len(scored_results))]
+
+            # Prepare pairs
+            pairs = [(question, r['text']) for r in candidates_to_rerank]
+
+            # Get reranking scores
+            rerank_scores = model.predict(pairs)
+
+            # Update scores
+            # Normalize rerank scores to [0, 1] range using sigmoid-like transformation
+            min_rerank = min(rerank_scores)
+            max_rerank = max(rerank_scores)
+            range_rerank = max_rerank - min_rerank if max_rerank != min_rerank else 1.0
+
+            for i, result in enumerate(candidates_to_rerank):
+                # Normalize rerank score to [0, 1]
+                raw_rerank = float(rerank_scores[i])
+                normalized_rerank = (raw_rerank - min_rerank) / range_rerank
+
+                result['rerank_score'] = normalized_rerank
+                # Combine: prioritize reranker but keep hybrid signal
+                result['final_score'] = 0.7 * normalized_rerank + 0.3 * result['final_score']
+
+            # Re-sort by new scores
+            scored_results.sort(key=lambda x: x.get('final_score', 0), reverse=True)
+
+        except ImportError:
+            print("⚠️  sentence-transformers not installed, skipping reranking")
+            print("   Install with: pip install sentence-transformers")
 
     # Step 6: Return top K
     return scored_results[:top_k]
@@ -115,6 +169,8 @@ def print_results(question: str, results: list, show_scores: bool = True):
         if show_scores:
             print(f"   Scores:")
             print(f"     Final: {result['final_score']:.4f}")
+            if 'rerank_score' in result:
+                print(f"     Rerank: {result['rerank_score']:.4f}")
             print(f"     Semantic: {result['semantic_score']:.4f}")
             print(f"     Keyword: {result['keyword_score']:.4f}")
             print(f"     Section Boost: {result.get('section_boost', 1.0):.2f}x")
@@ -149,7 +205,7 @@ def main():
     ]
 
     for question in test_questions:
-        results = query_with_section_boost(question, top_k=5, boost_factor=1.5)
+        results = query_with_section_boost(question, top_k=5, boost_factor=2.0, use_reranking=True)
         print_results(question, results, show_scores=True)
         print("\n")
 
