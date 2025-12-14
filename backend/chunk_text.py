@@ -1,3 +1,4 @@
+# splits the full paper text into smaller, overlapping chunks (500 tokens per chunk, 50 token overlap)
 from pathlib import Path
 from typing import List
 

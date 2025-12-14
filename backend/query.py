@@ -1,39 +1,26 @@
-"""
-Query module for retrieving relevant chunks from Pinecone
-"""
+# takes a relevant question, converts it to an embedding, searches Pinecone for the 5 most similar chunks, and returns chunks with similarity scores
 from openai import OpenAI
 import os
 from pinecone import Pinecone
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Load environment variables
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 
-
+# given a question, embed it and search the vector DB for top_k most similar chunks
 def query_vector_db(question: str, top_k: int = 5):
-    """
-    Given a question, embed it and search the vector DB for top_k most similar chunks
-
-    Args:
-        question: The user's query
-        top_k: Number of top results to return
-
-    Returns:
-        List of dictionaries containing matched chunks with metadata
-    """
-    # Step 1: Embed the question
+    # embed the question
     response = client.embeddings.create(
         model="text-embedding-3-small",
         input=question
     )
     question_embedding = response.data[0].embedding
 
-    # Step 2: Query Pinecone
+    # query pinecone
     index_name = os.environ.get("PINECONE_INDEX_NAME")
     index = pc.Index(index_name)
 
@@ -43,7 +30,7 @@ def query_vector_db(question: str, top_k: int = 5):
         include_metadata=True
     )
 
-    # Step 3: Format and return results
+    # format and return results
     matched_chunks = []
     for match in results['matches']:
         matched_chunks.append({
@@ -58,7 +45,6 @@ def query_vector_db(question: str, top_k: int = 5):
 
 
 def print_results(question: str, results: list):
-    """Pretty print query results"""
     print("\n" + "=" * 80)
     print(f"QUERY: {question}")
     print("=" * 80)
@@ -78,7 +64,6 @@ def print_results(question: str, results: list):
 
 
 def main():
-    """Test retrieval with several sample questions"""
 
     test_questions = [
         "How do students use mobile devices for learning English?",

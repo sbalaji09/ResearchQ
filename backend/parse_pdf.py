@@ -1,3 +1,7 @@
+"""
+reads PDF files page by page and extracts raw text from each page
+"""
+
 from pathlib import Path
 from pypdf import PdfReader
 

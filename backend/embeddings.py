@@ -1,3 +1,4 @@
+# calls openai's to convert text chunks into embeddings where each vector is stored in Pinecone with metadata
 from openai import OpenAI
 import os
 from pinecone import Pinecone, ServerlessSpec
