@@ -10,7 +10,7 @@ This script:
 """
 from pathlib import Path
 from parse_pdf import extract_text_from_pdf, remove_repeated_headers_footers
-from chunk_text import simple_tokenize, chunk_tokens
+from chunk_text_improved import chunk_by_sentences
 from embeddings import embed_chunks, store_in_pinecone
 
 
@@ -35,14 +35,14 @@ def process_and_store_paper(pdf_path: Path, pdf_id: str):
     pages_text_cleaned = remove_repeated_headers_footers(pages_text)
     print(f"✓ Cleaned {len(pages_text_cleaned)} pages")
 
-    # Step 3: Chunk the text
-    print("\n[3/5] Chunking text...")
+    # Step 3: Chunk the text (using improved sentence-based chunking)
+    print("\n[3/5] Chunking text with improved strategy...")
     full_text = "\n\n".join(pages_text_cleaned)
-    tokens = simple_tokenize(full_text)
-    print(f"✓ Tokenized: {len(tokens)} tokens")
 
-    chunks = chunk_tokens(tokens, chunk_size=500, overlap=50)
+    # Use sentence-based chunking for better semantic coherence
+    chunks = chunk_by_sentences(full_text, target_chunk_size=300, overlap_sentences=2)
     print(f"✓ Created {len(chunks)} chunks")
+    print(f"  Average chunk size: {sum(len(c.split()) for c in chunks) / len(chunks):.0f} tokens")
 
     # Step 4: Create metadata for each chunk
     print("\n[4/5] Generating embeddings...")
