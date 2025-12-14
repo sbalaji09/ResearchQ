@@ -1,6 +1,12 @@
 from openai import OpenAI
 import os
 from pinecone import Pinecone, ServerlessSpec
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables from .env file
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(env_path)
 
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
