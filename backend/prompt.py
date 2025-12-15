@@ -1,13 +1,13 @@
-def generate_prompt(question: str, text_chunk: str):
+def generate_prompt(question: str, text_chunks: list[str]):
     prompt = f"""
         You are an expert research assistant. You will receive:
         1. A question.
-        2. A chunk of text that definitely contains the answer.
+        2. Chunk of text that definitely contains the answer.
 
         Your task:
         - Answer the question **using only** the information in the text_chunk.
         - Do **not** use external knowledge.
-        - If the chunk partially answers the question, answer only what can be supported by the text.
+        - If the chunks partially answers the question, answer only what can be supported by the text.
         - Quote or reference specific phrases when useful.
         - Be concise, accurate, and avoid speculation.
         - Use only the information from the provided context to answer the given question
@@ -15,7 +15,7 @@ def generate_prompt(question: str, text_chunk: str):
 
         --------------------
         TEXT CHUNK:
-        {text_chunk}
+        {text_chunks}
 
         QUESTION:
         {question}
