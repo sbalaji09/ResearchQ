@@ -10,12 +10,13 @@ client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 def answer_generation(chunks: list[str], question: str, metadata: dict):
     try:
-        prompt = generate_prompt(question, chunks)
+        formatted_chunks = "\n\n---\n\n".join(chunks)
+        prompt = generate_prompt(question, formatted_chunks)
         response = client.chat.completions.create(
             model="gpt-5-mini", # You can use other models like gpt-4o, etc.
             messages=[
                 {"role": "system", "content": prompt},
-                {"role": "user", "context": chunks, "question": question},
+                {"role": "user", "content": question},
             ],
             temperature=0.2, # Controls the randomness of the output
             max_tokens=1000, # The maximum number of tokens to generate
@@ -25,3 +26,4 @@ def answer_generation(chunks: list[str], question: str, metadata: dict):
 
     except Exception as e:
         print(f"An error occurred: {e}")
+        return None
