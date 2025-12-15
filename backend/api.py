@@ -1,5 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 app = FastAPI(
     title="ResearchQ Backend",
@@ -19,3 +21,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+BASE_DIR = Path(__file__).resolve().parent
+TEST_PAPERS_DIR = BASE_DIR / "test_papers"
+TEST_PAPERS_DIR.mkdir(exist_ok=True)
+
+
+class AskRequest(BaseModel):
+    question: str
+
+
+class AskResponse(BaseModel):
+    answer: str
+
+
+class UploadResponse(BaseModel):
+    status: str
+    filename: str
+
+
+class PaperInfo(BaseModel):
+    filename: str
+    path: str
