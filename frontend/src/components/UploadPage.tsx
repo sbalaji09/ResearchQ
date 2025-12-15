@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Upload, File, X, ArrowLeft, Sparkles } from 'lucide-react';
+import { Upload, File, X, ArrowLeft, Sparkles, Check } from 'lucide-react';
 
 interface UploadPageProps {
   onUpload: (files: File[]) => void;
@@ -49,31 +49,38 @@ export function UploadPage({ onUpload, onBack }: UploadPageProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       {/* Header */}
-      <header className="px-8 py-6 flex items-center justify-between border-b border-gray-200">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-[#41337A] rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
+      <header className="px-6 md:px-12 py-6 border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={onBack}
+              className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-[#41337A] to-[#5a4a9f] rounded-xl flex items-center justify-center shadow-lg shadow-[#41337A]/20">
+                <Sparkles className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </div>
+              <span className="text-xl" style={{ fontWeight: 600, letterSpacing: '-0.02em' }}>ResearchQ</span>
             </div>
-            <h1 className="text-[#41337A]">ResearchQ</h1>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 px-8 py-12 max-w-4xl mx-auto w-full">
-        <div className="mb-8">
-          <h2 className="mb-2">Upload Research Papers</h2>
-          <p className="text-gray-600">
-            Upload one or more PDF files to start asking questions
+      <main className="px-6 md:px-12 py-16 max-w-5xl mx-auto">
+        <div className="mb-12 text-center">
+          <h2 
+            className="mb-3"
+            style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.02em' }}
+          >
+            Upload Your Research Papers
+          </h2>
+          <p className="text-gray-600 text-lg">
+            Add PDF files to start asking questions about your research
           </p>
         </div>
 
@@ -82,29 +89,39 @@ export function UploadPage({ onUpload, onBack }: UploadPageProps) {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-2xl p-16 text-center transition-all ${
+          className={`relative border-2 border-dashed rounded-3xl p-16 text-center transition-all duration-300 ${
             isDragging
-              ? 'border-[#41337A] bg-[#41337A]/5 scale-[1.02]'
-              : 'border-gray-300 hover:border-gray-400'
+              ? 'border-[#41337A] bg-gradient-to-br from-[#41337A]/5 to-purple-50/50 scale-[1.01]'
+              : 'border-gray-300 hover:border-gray-400 bg-white'
           }`}
         >
           <div className="max-w-md mx-auto">
-            <div className={`w-16 h-16 mx-auto mb-6 rounded-2xl flex items-center justify-center transition-colors ${
-              isDragging ? 'bg-[#41337A] scale-110' : 'bg-gray-100'
+            <div className={`relative w-20 h-20 mx-auto mb-6 transition-all duration-300 ${
+              isDragging ? 'scale-110' : ''
             }`}>
-              <Upload className={`w-8 h-8 transition-colors ${
-                isDragging ? 'text-white' : 'text-gray-400'
-              }`} />
+              <div className={`absolute inset-0 rounded-3xl transition-all duration-300 ${
+                isDragging 
+                  ? 'bg-gradient-to-br from-[#41337A] to-[#5a4a9f] shadow-2xl shadow-[#41337A]/40' 
+                  : 'bg-gradient-to-br from-gray-100 to-gray-200'
+              }`}></div>
+              <div className="relative w-full h-full flex items-center justify-center">
+                <Upload className={`w-9 h-9 transition-colors duration-300 ${
+                  isDragging ? 'text-white' : 'text-gray-400'
+                }`} strokeWidth={2} />
+              </div>
             </div>
 
-            <h3 className="mb-3">
-              {isDragging ? 'Drop files here' : 'Drag & drop your files here'}
+            <h3 
+              className="mb-2"
+              style={{ fontSize: '1.25rem', fontWeight: 600 }}
+            >
+              {isDragging ? 'Drop your files here' : 'Drag & drop PDF files'}
             </h3>
-            <p className="text-gray-500 mb-6">or</p>
+            <p className="text-gray-500 mb-6">or click below to browse</p>
 
-            <label className="inline-flex items-center gap-2 bg-[#41337A] text-white px-6 py-3 rounded-lg hover:bg-[#41337A]/90 transition-colors cursor-pointer shadow-sm">
+            <label className="inline-flex items-center gap-2 bg-gradient-to-r from-[#41337A] to-[#5a4a9f] text-white px-6 py-3 rounded-xl hover:shadow-xl hover:shadow-[#41337A]/30 transition-all duration-300 hover:-translate-y-0.5 cursor-pointer">
               <File className="w-4 h-4" />
-              Browse Files
+              <span style={{ fontWeight: 500 }}>Choose Files</span>
               <input
                 type="file"
                 multiple
@@ -114,27 +131,37 @@ export function UploadPage({ onUpload, onBack }: UploadPageProps) {
               />
             </label>
 
-            <p className="text-sm text-gray-400 mt-4">PDF files only</p>
+            <p className="text-sm text-gray-400 mt-6">Supports PDF files up to 50MB</p>
           </div>
         </div>
 
         {/* Selected Files */}
         {selectedFiles.length > 0 && (
-          <div className="mt-8 bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="mb-4">Selected Files ({selectedFiles.length})</h3>
+          <div className="mt-12 bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
+                Selected Files ({selectedFiles.length})
+              </h3>
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <Check className="w-4 h-4" />
+                <span>Ready to upload</span>
+              </div>
+            </div>
             
-            <div className="space-y-2 mb-6">
+            <div className="space-y-3 mb-8">
               {selectedFiles.map((file, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg group hover:bg-gray-100 transition-colors"
+                  className="group flex items-center justify-between p-4 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 hover:border-[#41337A]/20 hover:shadow-md transition-all duration-300"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-gray-200">
-                      <File className="w-5 h-5 text-[#41337A]" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-[#41337A]/10 to-purple-100/50 rounded-xl flex items-center justify-center border border-[#41337A]/10">
+                      <File className="w-6 h-6 text-[#41337A]" />
                     </div>
                     <div>
-                      <p className="text-sm">{file.name}</p>
+                      <p className="text-sm mb-1" style={{ fontWeight: 500 }}>
+                        {file.name}
+                      </p>
                       <p className="text-xs text-gray-500">
                         {(file.size / 1024 / 1024).toFixed(2)} MB
                       </p>
@@ -142,9 +169,9 @@ export function UploadPage({ onUpload, onBack }: UploadPageProps) {
                   </div>
                   <button
                     onClick={() => removeFile(index)}
-                    className="p-2 hover:bg-white rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    className="p-2 hover:bg-red-50 rounded-lg transition-all duration-300 opacity-0 group-hover:opacity-100"
                   >
-                    <X className="w-4 h-4 text-gray-400" />
+                    <X className="w-4 h-4 text-red-500" />
                   </button>
                 </div>
               ))}
@@ -152,8 +179,10 @@ export function UploadPage({ onUpload, onBack }: UploadPageProps) {
 
             <button
               onClick={handleUpload}
-              className="w-full bg-[#41337A] text-white px-6 py-3 rounded-lg hover:bg-[#41337A]/90 transition-colors shadow-sm"
+              className="w-full bg-gradient-to-r from-[#41337A] to-[#5a4a9f] text-white px-6 py-4 rounded-xl hover:shadow-2xl hover:shadow-[#41337A]/30 transition-all duration-300 hover:-translate-y-0.5 flex items-center justify-center gap-2"
+              style={{ fontWeight: 600 }}
             >
+              <Upload className="w-5 h-5" />
               Upload {selectedFiles.length} {selectedFiles.length === 1 ? 'Paper' : 'Papers'}
             </button>
           </div>
