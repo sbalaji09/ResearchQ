@@ -10,6 +10,8 @@ def generate_prompt(question: str, text_chunk: str):
         - If the chunk partially answers the question, answer only what can be supported by the text.
         - Quote or reference specific phrases when useful.
         - Be concise, accurate, and avoid speculation.
+        - Use only the information from the provided context to answer the given question
+        - Cite your sources in standard MLA-8 format whenever needed
 
         --------------------
         TEXT CHUNK:
