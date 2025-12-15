@@ -10,8 +10,16 @@ client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 def answer_generation(chunks: list[str], question: str, metadata: dict):
     try:
-        formatted_chunks = "\n\n---\n\n".join(chunks)
-        prompt = generate_prompt(question, formatted_chunks)
+        # Format chunks with section labels for better citations
+        formatted_chunks = []
+        sections = metadata.get('sections', [])
+
+        for i, chunk in enumerate(chunks):
+            section = sections[i] if i < len(sections) else 'Unknown'
+            formatted_chunks.append(f"[Source {i+1} - {section} Section]\n{chunk}")
+
+        chunks_text = "\n\n---\n\n".join(formatted_chunks)
+        prompt = generate_prompt(chunks_text, metadata)
         response = client.chat.completions.create(
             model="gpt-5-mini", # You can use other models like gpt-4o, etc.
             messages=[

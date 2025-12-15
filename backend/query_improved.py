@@ -6,7 +6,7 @@ import os
 from pinecone import Pinecone
 from dotenv import load_dotenv
 from pathlib import Path
-from backend.generation import answer_generation
+from generation import answer_generation
 from retrieval import (
     detect_question_type,
     compute_bm25_score,
@@ -144,10 +144,44 @@ def query_with_section_boost(
     # Step 6: Return top K
     return scored_results[:top_k]
 
-def content_generator(question: str):
-    chunks = query_with_section_boost(question, 3, 2, True)
+def content_generator(question: str, top_k: int = 5):
+    """
+    Complete RAG pipeline: retrieval -> generation
 
-    result = answer_generation(chunks, question)
+    Args:
+        question: User's question
+        top_k: Number of chunks to retrieve
+
+    Returns:
+        Generated answer with citations
+    """
+    # Step 1: Retrieve relevant chunks with metadata
+    results = query_with_section_boost(question, top_k=top_k, boost_factor=2.0, use_reranking=True)
+
+    if not results:
+        return "No relevant information found in the documents."
+
+    # Step 2: Extract text chunks and build metadata for citations
+    chunks = []
+    metadata = {
+        'sections': [],
+        'chunk_ids': [],
+        'scores': [],
+        'document_id': None
+    }
+
+    for i, result in enumerate(results):
+        chunks.append(result['text'])
+        metadata['sections'].append(result.get('section', 'Unknown'))
+        metadata['chunk_ids'].append(result.get('id', f'chunk_{i}'))
+        metadata['scores'].append(result.get('final_score', 0))
+        if metadata['document_id'] is None:
+            metadata['document_id'] = result.get('metadata', {}).get('document_id', 'unknown')
+
+    # Step 3: Generate answer with metadata for citations
+    answer = answer_generation(chunks, question, metadata)
+
+    return answer
 
 
 def print_results(question: str, results: list, show_scores: bool = True):
