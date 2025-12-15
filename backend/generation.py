@@ -1,7 +1,7 @@
 from openai import OpenAI
 from prompt import generate_prompt
 
-client = OpenAI()
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 def answer_generation(chunk: str, question: str):
     try:
@@ -14,7 +14,7 @@ def answer_generation(chunk: str, question: str):
             temperature=0.7, # Controls the randomness of the output
             max_tokens=1000, # The maximum number of tokens to generate
         )
-        
+
         print(response.choices[0].message.content)
 
     except Exception as e:
