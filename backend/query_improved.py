@@ -6,6 +6,7 @@ import os
 from pinecone import Pinecone
 from dotenv import load_dotenv
 from pathlib import Path
+from backend.generation import answer_generation
 from retrieval import (
     detect_question_type,
     compute_bm25_score,
@@ -142,6 +143,11 @@ def query_with_section_boost(
 
     # Step 6: Return top K
     return scored_results[:top_k]
+
+def content_generator(question: str):
+    chunks = query_with_section_boost(question, 3, 2, True)
+
+    result = answer_generation(chunks, question)
 
 
 def print_results(question: str, results: list, show_scores: bool = True):
