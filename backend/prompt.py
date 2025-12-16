@@ -1,4 +1,4 @@
-def generate_prompt(text_chunks: str, metadata: dict = None):
+def generate_system_prompt(text_chunks: list[str], metadata: dict = None):
     # Build document info for citation
     doc_info = ""
     if metadata:
@@ -31,5 +31,16 @@ def generate_prompt(text_chunks: str, metadata: dict = None):
         Provide a clear, well-written answer using only the chunks above.
         Include citations to the source numbers when making claims.
         If the answer cannot be fully determined from the text, state which parts are unclear.
+    """
+    return prompt
+
+def generate_user_prompt(chunks_text: list[str], question: str):
+    prompt = f"""TEXT CHUNKS:
+    {chunks_text}
+
+    --------------------
+    QUESTION: {question}
+
+    Please provide a clear, well-written answer using only the chunks above. Include citations to the source numbers when making claims.
     """
     return prompt
