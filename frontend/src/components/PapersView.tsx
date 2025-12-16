@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft, File, MessageSquare, Send, Sparkles, Upload, Zap } from 'lucide-react';
+import { askQuestion } from '@/api';
 
 interface Paper {
   id: string;
@@ -29,55 +30,42 @@ export function PapersView({ papers, onBack, onUploadMore }: PapersViewProps) {
 
   const handleAskQuestion = async () => {
     if (!question.trim() || !selectedPaper || isAsking) return;
-
+  
     setError(null);
-
+  
     const newQuestion: Message = {
       id: Math.random().toString(36).substring(7),
-      type: 'question',
+      type: "question",
       content: question.trim(),
     };
-
+  
+    // Add the user's question to chat
     setMessages(prev => [...prev, newQuestion]);
-    setQuestion('');
+    setQuestion("");
     setIsAsking(true);
-
+  
     try {
-      const res = await fetch('http://localhost:8000/ask', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ question: newQuestion.content }),
-      });
-
-      if (!res.ok) {
-        let msg = 'Failed to get answer from server.';
-        try {
-          const data = await res.json();
-          if (data?.detail) msg = data.detail;
-        } catch {}
-        throw new Error(msg);
-      }
-
-      const data = await res.json();
-
+      // Call backend API correctly
+      const answerText = await askQuestion(newQuestion.content);
+  
       const answer: Message = {
         id: Math.random().toString(36).substring(7),
-        type: 'answer',
-        content: data.answer ?? 'No answer returned from server.',
+        type: "answer",
+        content: answerText,
       };
-
+  
+      // Add answer to chat
       setMessages(prev => [...prev, answer]);
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : 'Something went wrong while asking the question.';
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while asking the question.";
       setError(msg);
     } finally {
       setIsAsking(false);
     }
-  };
-
+  };  
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex flex-col">
       {/* Header */}
