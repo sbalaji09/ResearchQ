@@ -1,19 +1,21 @@
+import os
 from pathlib import Path
 from typing import List
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from pinecone import Pinecone
 
-# 👇 Adjust these imports to match your actual filenames
-# e.g. if you have backend/ingest_paper.py with def ingest_paper(pdf_path: Path): ...
-# and backend/rag_pipeline.py with def content_generator(question: str) -> str: ...
 from ingest_paper import ingest_paper
 from query_improved import content_generator
 
 from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
+
+# Initialize Pinecone client
+pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 
 
 # ---------------- FastAPI app ----------------
@@ -65,6 +67,11 @@ class UploadResponse(BaseModel):
 class PaperInfo(BaseModel):
   filename: str
   path: str
+
+
+class ClearResponse(BaseModel):
+  status: str
+  message: str
 
 
 # ---------------- Routes ----------------
@@ -124,3 +131,27 @@ async def list_papers():
     )
 
   return papers
+
+
+# Clear all vectors from Pinecone and delete local PDF files
+@app.post("/clear", response_model=ClearResponse)
+async def clear_data():
+  try:
+    # Clear Pinecone vectors
+    index_name = os.environ.get("PINECONE_INDEX_NAME")
+    index = pc.Index(index_name)
+    index.delete(delete_all=True)
+
+    # Delete local PDF files
+    deleted_files = []
+    for pdf_path in TEST_PAPERS_DIR.glob("*.pdf"):
+      pdf_path.unlink()
+      deleted_files.append(pdf_path.name)
+
+    return ClearResponse(
+      status="success",
+      message=f"Cleared all vectors and deleted {len(deleted_files)} file(s)"
+    )
+
+  except Exception as e:
+    raise HTTPException(status_code=500, detail=f"Failed to clear data: {e}")

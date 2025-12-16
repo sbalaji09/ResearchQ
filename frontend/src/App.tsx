@@ -25,6 +25,11 @@ export default function App() {
     setCurrentView('papers');
   };
 
+  const handleClearPapers = () => {
+    setUploadedPapers([]);
+    setCurrentView('landing');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {currentView === 'landing' && (
@@ -41,10 +46,11 @@ export default function App() {
         />
       )}
       {currentView === 'papers' && (
-        <PapersView 
+        <PapersView
           papers={uploadedPapers}
           onBack={() => setCurrentView('landing')}
           onUploadMore={() => setCurrentView('upload')}
+          onClearPapers={handleClearPapers}
         />
       )}
     </div>

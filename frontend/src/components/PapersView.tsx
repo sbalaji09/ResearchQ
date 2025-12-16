@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ArrowLeft, File, MessageSquare, Send, Sparkles, Upload, Zap, Loader2 } from 'lucide-react';
-import { askQuestion } from '@/api';
+import { ArrowLeft, File, MessageSquare, Send, Sparkles, Upload, Zap, Loader2, Trash2 } from 'lucide-react';
+import { askQuestion, clearPapers } from '@/api';
 
 interface Paper {
   id: string;
@@ -13,6 +13,7 @@ interface PapersViewProps {
   papers: Paper[];
   onBack: () => void;
   onUploadMore: () => void;
+  onClearPapers: () => void;
 }
 
 interface Message {
@@ -21,12 +22,36 @@ interface Message {
   content: string;
 }
 
-export function PapersView({ papers, onBack, onUploadMore }: PapersViewProps) {
+export function PapersView({ papers, onBack, onUploadMore, onClearPapers }: PapersViewProps) {
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(papers[0] || null);
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isAsking, setIsAsking] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleClearPapers = async () => {
+    if (isClearing) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to clear all papers? This will delete all uploaded files and their data from the server."
+    );
+
+    if (!confirmed) return;
+
+    setIsClearing(true);
+    try {
+      await clearPapers();
+      setMessages([]);
+      setSelectedPaper(null);
+      onClearPapers();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to clear papers.";
+      setError(msg);
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const handleAskQuestion = async () => {
     if (!question.trim() || !selectedPaper || isAsking) return;
@@ -86,14 +111,29 @@ export function PapersView({ papers, onBack, onUploadMore }: PapersViewProps) {
             </div>
           </div>
 
-          <button
-            onClick={onUploadMore}
-            className="flex items-center gap-2 px-4 py-2 text-[#41337A] bg-[#41337A]/5 border border-[#41337A]/20 rounded-xl hover:bg-[#41337A]/10 transition-all duration-300"
-            style={{ fontWeight: 500 }}
-          >
-            <Upload className="w-4 h-4" />
-            Upload More
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleClearPapers}
+              disabled={isClearing || papers.length === 0}
+              className="flex items-center gap-2 px-4 py-2 text-red-600 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ fontWeight: 500 }}
+            >
+              {isClearing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              Clear
+            </button>
+            <button
+              onClick={onUploadMore}
+              className="flex items-center gap-2 px-4 py-2 text-[#41337A] bg-[#41337A]/5 border border-[#41337A]/20 rounded-xl hover:bg-[#41337A]/10 transition-all duration-300"
+              style={{ fontWeight: 500 }}
+            >
+              <Upload className="w-4 h-4" />
+              Upload More
+            </button>
+          </div>
         </div>
       </header>
 

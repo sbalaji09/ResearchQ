@@ -45,3 +45,21 @@ export async function askQuestion(question: string) {
   const data = await res.json();
   return data.answer;
 }
+
+// clear all papers and vectors from the backend
+export async function clearPapers() {
+  const res = await fetch(`${BASE_URL}/clear`, {
+    method: "POST",
+  });
+
+  if (!res.ok) {
+    let message = "Failed to clear papers.";
+    try {
+      const data = await res.json();
+      if (data?.detail) message = data.detail;
+    } catch {}
+    throw new Error(message);
+  }
+
+  return res.json();
+}
