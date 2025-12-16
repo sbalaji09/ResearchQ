@@ -8,8 +8,12 @@ from pydantic import BaseModel
 # 👇 Adjust these imports to match your actual filenames
 # e.g. if you have backend/ingest_paper.py with def ingest_paper(pdf_path: Path): ...
 # and backend/rag_pipeline.py with def content_generator(question: str) -> str: ...
-from .ingest_paper import ingest_paper
+from ingest_paper import ingest_paper
 from query_improved import content_generator
+
+from dotenv import load_dotenv
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(env_path)
 
 
 # ---------------- FastAPI app ----------------
@@ -22,8 +26,8 @@ app = FastAPI(
 # ---------------- CORS ----------------
 # Allow your Vite dev server on localhost:5173
 origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
     # add your deployed frontend domain later, e.g.:
     # "https://your-frontend-domain.com",
 ]
@@ -82,7 +86,7 @@ async def upload_pdf(file: UploadFile = File(...)):
     file_bytes = await file.read()
     dest_path.write_bytes(file_bytes)
 
-    ingest_paper(dest_path)
+    ingest_paper(dest_path, pdf_id=safe_filename.replace(".pdf", ""), clear_existing=True)
 
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Failed to process PDF: {e}")
