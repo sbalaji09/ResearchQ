@@ -144,7 +144,7 @@ def query_with_section_boost(
     # Step 6: Return top K
     return scored_results[:top_k]
 
-def content_generator(question: str, top_k: int = 5):
+def content_generator(question: str, top_k: int = 5) -> str:
     """
     Complete RAG pipeline: retrieval -> generation
 
@@ -153,33 +153,63 @@ def content_generator(question: str, top_k: int = 5):
         top_k: Number of chunks to retrieve
 
     Returns:
-        Generated answer with citations
+        Generated answer with citations (string)
     """
     # Step 1: Retrieve relevant chunks with metadata
-    results = query_with_section_boost(question, top_k=top_k, boost_factor=2.0, use_reranking=True)
+    try:
+        results = query_with_section_boost(
+            question=question,
+            top_k=top_k,
+            boost_factor=2.0,
+            use_reranking=True,
+        )
+    except Exception as e:
+        # Fallback message if retrieval itself fails
+        return f"Something went wrong during retrieval: {e}"
 
     if not results:
         return "No relevant information found in the documents."
 
     # Step 2: Extract text chunks and build metadata for citations
-    chunks = []
+    chunks: list[str] = []
     metadata = {
-        'sections': [],
-        'chunk_ids': [],
-        'scores': [],
-        'document_id': None
+        "sections": [],
+        "chunk_ids": [],
+        "scores": [],
+        "document_id": None,
     }
 
     for i, result in enumerate(results):
-        chunks.append(result['text'])
-        metadata['sections'].append(result.get('section', 'Unknown'))
-        metadata['chunk_ids'].append(result.get('id', f'chunk_{i}'))
-        metadata['scores'].append(result.get('final_score', 0))
-        if metadata['document_id'] is None:
-            metadata['document_id'] = result.get('metadata', {}).get('document_id', 'unknown')
+        # Robust access with defaults
+        text = result.get("text") or result.get("metadata", {}).get("text", "")
+        if not text:
+            # Skip empty chunks
+            continue
+
+        chunks.append(text)
+        metadata["sections"].append(result.get("section", "Unknown"))
+        metadata["chunk_ids"].append(result.get("id", f"chunk_{i}"))
+        metadata["scores"].append(result.get("final_score", 0.0))
+
+        if metadata["document_id"] is None:
+            metadata["document_id"] = (
+                result.get("metadata", {}).get("document_id")
+                or result.get("metadata", {}).get("pdf_id")
+                or "unknown"
+            )
+
+    if not chunks:
+        return "I retrieved some chunks, but they were empty or invalid."
 
     # Step 3: Generate answer with metadata for citations
-    answer = answer_generation(chunks, question, metadata)
+    try:
+        answer = answer_generation(chunks, question, metadata)
+    except Exception as e:
+        return f"Something went wrong during answer generation: {e}"
+
+    # 🔴 Critical: Always return a non-empty string
+    if not isinstance(answer, str) or not answer.strip():
+        return "I was unable to generate a valid answer from the retrieved context."
 
     return answer
 

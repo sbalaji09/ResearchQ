@@ -102,6 +102,9 @@ async def ask_question(payload: AskRequest):
 
   try:
     answer = content_generator(question)
+
+    if not isinstance(answer, str) or not answer.strip():
+        raise ValueError("content_generator returned an empty or invalid answer")
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Failed to generate answer: {e}")
 
