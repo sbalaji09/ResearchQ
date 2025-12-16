@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
@@ -83,3 +84,18 @@ async def ask_question(payload: AskRequest):
         raise HTTPException(status_code=500, detail=f"Failed to generate answer: {e}")
 
     return AskResponse(answer=answer)
+
+# lists PDFs currently saved in test_papers/
+@app.get("/papers", response_model=List[PaperInfo])
+async def list_papers():
+    papers: List[PaperInfo] = []
+
+    for pdf_path in TEST_PAPERS_DIR.glob("*.pdf"):
+        papers.append(
+            PaperInfo(
+                filename=pdf_path.name,
+                path=str(pdf_path.relative_to(BASE_DIR)),
+            )
+        )
+
+    return papers
