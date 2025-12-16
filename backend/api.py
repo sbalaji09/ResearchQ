@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from backend.query_improved import content_generator
 from ingest_paper import ingest_paper          # <-- change if needed
 
 app = FastAPI(
@@ -67,3 +68,18 @@ async def upload_pdf(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to process PDF: {e}")
 
     return UploadResponse(status="success", filename=safe_filename)
+
+# acepts a question as JSON and calls the content_generator(question)
+@app.post("/ask", response_model=AskResponse)
+async def ask_question(payload: AskRequest):
+    # format the question properly
+    question = payload.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+
+    try:
+        answer = content_generator(question)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate answer: {e}")
+
+    return AskResponse(answer=answer)
