@@ -1,3 +1,4 @@
+from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 import logging
@@ -58,3 +59,41 @@ def detect_pdf_type(pdf_path: Path) -> str:
     except Exception as e:
         logger.error(f"Failed to ingest PDF {pdf_path.name}: {e}")
         return "scanned"
+
+# this function extracts text from a PDF using Unstructured, grouped by page
+def extract_with_unstructured(pdf_path: Path) -> list[str]:
+    elements = partition_pdf(
+        filename=str(pdf_path),
+        strategy="hi_res",
+        infer_table_structure=True,
+    )
+
+    pages_dict: dict[int, list[str]] = defaultdict(list)
+
+    for el in elements:
+        page_num = getattr(el, "page_number", 1) or 1
+        pages_dict[page_num].append(str(el))
+    
+    if not pages_dict:
+        logger.warning(f"No elements returned by Unstructured for {pdf_path.name}")
+        return []
+
+    max_page = max(pages_dict.keys())
+    pages: list[str] = []
+
+    for page in range(1, max_page + 1):
+        page_elems = pages_dict.get(page, [])
+        page_text = "\n".join(page_elems).strip()
+        pages.append(page_text)
+
+        logger.debug(
+            f"{pdf_path.name}: Unstructured page {page} has"
+            f"{len(page_elems)} elements, {len(page_text)} chars"
+        )
+
+    logger.info(
+        f"Unstructured extraction complete for {pdf_path.name}"
+        f"({len(pages)} pages of text)"
+    )
+
+    return pages
