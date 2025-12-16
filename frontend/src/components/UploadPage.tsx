@@ -9,6 +9,9 @@ interface UploadPageProps {
 export function UploadPage({ onUpload, onBack }: UploadPageProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -42,9 +45,45 @@ export function UploadPage({ onUpload, onBack }: UploadPageProps) {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleUpload = () => {
-    if (selectedFiles.length > 0) {
+  const handleUpload = async () => {
+    if (selectedFiles.length == 0 || isUploading) return;
+
+    setIsUploading(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      for (const file of selectedFiles) {
+        const formData = new FormData();
+
+        formData.append('file', file);
+
+        const res = await fetch('http://localhost:8000/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) {
+          let message = 'Failed to upload ${file.name}';
+          try {
+            const data = await res.json();
+            if (data?.detail) {
+              message = data.detail;
+            }
+          } catch {}
+          throw new Error(message);
+        }
+      }
+
+      setSuccess(true);
       onUpload(selectedFiles);
+      setSelectedFiles([]);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Upload failed. Please try again.';
+      setError(msg);
+    } finally {
+      setIsUploading(false);
     }
   };
 
