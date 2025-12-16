@@ -1,4 +1,4 @@
-import { Upload, FileText, MessageSquare, Zap, ArrowRight, Sparkles, Lock, Clock } from 'lucide-react';
+import { Upload, FileText, MessageSquare, Zap, ArrowRight, Sparkles, Lock } from 'lucide-react';
 
 interface LandingPageProps {
   onUpload: () => void;
