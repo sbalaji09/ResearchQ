@@ -23,15 +23,9 @@ def answer_generation(chunks: list[str], question: str, metadata: dict):
 
         chunks_text = "\n\n---\n\n".join(formatted_chunks)
 
-        # Build document info for citation
-        doc_info = ""
-        if metadata:
-            doc_id = metadata.get('document_id', 'Unknown Document')
-            section_list = metadata.get('sections', [])
-            doc_info = f"Document: {doc_id}\nSections referenced: {', '.join(set(section_list))}"
-
-        system_prompt = generate_system_prompt(chunks_text, metadata)
-        user_prompt = generate_user_prompt(chunks_text, metadata)
+        # Generate prompts
+        system_prompt = generate_system_prompt(metadata)
+        user_prompt = generate_user_prompt(chunks_text, question)
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
