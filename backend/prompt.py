@@ -18,7 +18,7 @@ CRITICAL INSTRUCTIONS:
 4. Use ONLY information from the provided text chunks. Do not use external knowledge.
 5. If the chunks don't contain information to answer the question, say "The provided text does not contain specific information about [topic]."
 6. Quote or paraphrase specific passages that directly answer the question.
-7. Cite sources using format: (Source N, Section Name).
+7. Cite using format: (Section Name) - all chunks are from the same document, so just reference the section.
 8. Be concise and direct. Avoid lengthy introductions or tangential information.
 
 ANSWERING STYLE:

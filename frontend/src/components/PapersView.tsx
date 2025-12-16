@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, File, MessageSquare, Send, Sparkles, Upload, Zap } from 'lucide-react';
+import { ArrowLeft, File, MessageSquare, Send, Sparkles, Upload, Zap, Loader2 } from 'lucide-react';
 import { askQuestion } from '@/api';
 
 interface Paper {
@@ -250,6 +250,25 @@ export function PapersView({ papers, onBack, onUploadMore }: PapersViewProps) {
                         )}
                       </div>
                     ))}
+
+                    {/* Thinking animation */}
+                    {isAsking && (
+                      <div className="flex gap-4 justify-start">
+                        <div className="w-11 h-11 bg-gradient-to-br from-[#41337A] to-[#5a4a9f] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-[#41337A]/20">
+                          <Loader2 className="w-5 h-5 text-white animate-spin" />
+                        </div>
+                        <div className="max-w-2xl p-5 rounded-2xl bg-white border border-gray-200 shadow-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="flex gap-1">
+                              <span className="w-2 h-2 bg-[#41337A] rounded-full animate-pulse" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-2 h-2 bg-[#41337A] rounded-full animate-pulse" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-2 h-2 bg-[#41337A] rounded-full animate-pulse" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                            <span className="text-gray-500 text-sm">Thinking...</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -271,12 +290,21 @@ export function PapersView({ papers, onBack, onUploadMore }: PapersViewProps) {
                     </div>
                     <button
                       onClick={handleAskQuestion}
-                      disabled={!question.trim()}
+                      disabled={!question.trim() || isAsking}
                       className="px-6 py-4 bg-gradient-to-r from-[#41337A] to-[#5a4a9f] text-white rounded-xl hover:shadow-xl hover:shadow-[#41337A]/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none flex items-center gap-2"
                       style={{ fontWeight: 500 }}
                     >
-                      <Send className="w-4 h-4" />
-                      Send
+                      {isAsking ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Thinking
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          Send
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

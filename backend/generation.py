@@ -13,13 +13,13 @@ client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 def answer_generation(chunks: list[str], question: str, metadata: dict):
     try:
-        # Format chunks with section labels for better citations
+        # Format chunks with chunk numbers (all from same document)
         formatted_chunks = []
         sections = metadata.get('sections', [])
 
         for i, chunk in enumerate(chunks):
             section = sections[i] if i < len(sections) else 'Unknown'
-            formatted_chunks.append(f"[Source {i+1} - {section} Section]\n{chunk}")
+            formatted_chunks.append(f"[Chunk {i+1} - {section} Section]\n{chunk}")
 
         chunks_text = "\n\n---\n\n".join(formatted_chunks)
 
