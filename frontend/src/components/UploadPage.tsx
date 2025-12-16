@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Upload, File, X, ArrowLeft, Sparkles, Check } from 'lucide-react';
+import { uploadPaper } from '@/api';
 
 interface UploadPageProps {
   onUpload: (files: File[]) => void;
@@ -46,46 +47,34 @@ export function UploadPage({ onUpload, onBack }: UploadPageProps) {
   };
 
   const handleUpload = async () => {
-    if (selectedFiles.length == 0 || isUploading) return;
-
+    if (selectedFiles.length === 0 || isUploading) return;
+  
     setIsUploading(true);
     setError(null);
     setSuccess(false);
-
+  
     try {
+      // Upload each file
       for (const file of selectedFiles) {
-        const formData = new FormData();
-
-        formData.append('file', file);
-
-        const res = await fetch('http://localhost:8000/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!res.ok) {
-          let message = 'Failed to upload ${file.name}';
-          try {
-            const data = await res.json();
-            if (data?.detail) {
-              message = data.detail;
-            }
-          } catch {}
-          throw new Error(message);
-        }
+        await uploadPaper(file);   // <-- calls backend /upload
       }
-
+  
       setSuccess(true);
+  
+      // Notify parent so it can navigate to the Papers view
       onUpload(selectedFiles);
+  
+      // Clear selected files
       setSelectedFiles([]);
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : 'Upload failed. Please try again.';
+        err instanceof Error ? err.message : "Upload failed. Please try again.";
       setError(msg);
     } finally {
       setIsUploading(false);
     }
   };
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
