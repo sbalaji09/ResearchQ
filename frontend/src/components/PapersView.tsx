@@ -24,25 +24,58 @@ export function PapersView({ papers, onBack, onUploadMore }: PapersViewProps) {
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(papers[0] || null);
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isAsking, setIsAsking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAskQuestion = () => {
-    if (!question.trim()) return;
+  const handleAskQuestion = async () => {
+    if (!question.trim() || !selectedPaper || isAsking) return;
+
+    setError(null);
 
     const newQuestion: Message = {
       id: Math.random().toString(36).substring(7),
       type: 'question',
-      content: question
+      content: question.trim(),
     };
 
-    // Simulate AI response
-    const answer: Message = {
-      id: Math.random().toString(36).substring(7),
-      type: 'answer',
-      content: `Based on the paper "${selectedPaper?.title}", I can help with that. This is a simulated AI response demonstrating how the system would analyze your research paper and provide contextual answers. In production, this would use advanced language models to extract insights from the PDF content.`
-    };
-
-    setMessages([...messages, newQuestion, answer]);
+    setMessages(prev => [...prev, newQuestion]);
     setQuestion('');
+    setIsAsking(true);
+
+    try {
+      const res = await fetch('http://localhost:8000/ask', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question: newQuestion.content }),
+      });
+
+      if (!res.ok) {
+        let msg = 'Failed to get answer from server.';
+        try {
+          const data = await res.json();
+          if (data?.detail) msg = data.detail;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      const data = await res.json();
+
+      const answer: Message = {
+        id: Math.random().toString(36).substring(7),
+        type: 'answer',
+        content: data.answer ?? 'No answer returned from server.',
+      };
+
+      setMessages(prev => [...prev, answer]);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Something went wrong while asking the question.';
+      setError(msg);
+    } finally {
+      setIsAsking(false);
+    }
   };
 
   return (
