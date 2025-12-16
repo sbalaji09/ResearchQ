@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Upload, File, X, ArrowLeft, Sparkles, Check } from 'lucide-react';
+import { Upload, File, X, ArrowLeft, Sparkles, Check, Loader2, AlertCircle } from 'lucide-react';
 import { uploadPaper } from '@/api';
 
 interface UploadPageProps {
@@ -205,13 +205,34 @@ export function UploadPage({ onUpload, onBack }: UploadPageProps) {
               ))}
             </div>
 
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <span className="text-sm">{error}</span>
+              </div>
+            )}
+
             <button
               onClick={handleUpload}
-              className="w-full bg-gradient-to-r from-[#41337A] to-[#5a4a9f] text-white px-6 py-4 rounded-xl hover:shadow-2xl hover:shadow-[#41337A]/30 transition-all duration-300 hover:-translate-y-0.5 flex items-center justify-center gap-2"
+              disabled={isUploading}
+              className={`w-full bg-gradient-to-r from-[#41337A] to-[#5a4a9f] text-white px-6 py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${
+                isUploading
+                  ? 'opacity-70 cursor-not-allowed'
+                  : 'hover:shadow-2xl hover:shadow-[#41337A]/30 hover:-translate-y-0.5'
+              }`}
               style={{ fontWeight: 600 }}
             >
-              <Upload className="w-5 h-5" />
-              Upload {selectedFiles.length} {selectedFiles.length === 1 ? 'Paper' : 'Papers'}
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-5 h-5" />
+                  Upload {selectedFiles.length} {selectedFiles.length === 1 ? 'Paper' : 'Papers'}
+                </>
+              )}
             </button>
           </div>
         )}
