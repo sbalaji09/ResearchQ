@@ -10,7 +10,7 @@ from pdf2image import convert_from_path
 import pytesseract
 from unstructured.partition.pdf import partition_pdf
 
-from backend.parse_pdf import extract_text_from_pdf
+from parse_pdf import extract_text_from_pdf
 
 # Configure logger for this module
 logger = logging.getLogger("ingest")
@@ -90,12 +90,12 @@ def extract_with_unstructured(pdf_path: Path) -> list[str]:
 
         logger.debug(
             f"{pdf_path.name}: Unstructured page {page} has"
-            f"{len(page_elems)} elements, {len(page_text)} chars"
+            f" {len(page_elems)} elements, {len(page_text)} chars"
         )
 
     logger.info(
         f"Unstructured extraction complete for {pdf_path.name}"
-        f"({len(pages)} pages of text)"
+        f" ({len(pages)} pages of text)"
     )
 
     return pages
