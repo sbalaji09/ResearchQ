@@ -131,6 +131,25 @@ def extract_tables_from_page(pdf_path: Path, page_num: int) -> list[str]:
     
     return tables_as_strings
 
+# extract tables from all pages of a PDF
+def extract_all_tables(pdf_path: Path) -> dict[int, list[str]]:
+    tables_by_page: dict[int, list[str]] = {}
+    
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_num, page in enumerate(pdf.pages):
+                tables = page.extract_tables() or []
+                if tables:
+                    formatted_tables = []
+                    for table in tables:
+                        rows = [" | ".join(cell if cell else "" for cell in row) for row in table]
+                        formatted_tables.append("\n".join(rows))
+                    tables_by_page[page_num] = formatted_tables
+    except Exception as e:
+        logger.warning(f"Table extraction failed: {e}")
+    
+    return tables_by_page
+
 def extract_text_from_pdf_enhanced(pdf_path: Path) -> list[str]:
     pdf_type = detect_pdf_type(pdf_path)
     
