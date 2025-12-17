@@ -3,7 +3,7 @@ Main script to ingest research papers into the vector database
 Uses improved hierarchical chunking and rich metadata
 """
 from pathlib import Path
-from parse_pdf import extract_text_from_pdf, remove_repeated_headers_footers
+from parse_pdf_enhanced import extract_text_from_pdf_enhanced
 from chunk_text_improved import chunk_document, chunks_to_documents
 from embeddings import embed_chunks, store_in_pinecone
 import os
@@ -36,17 +36,17 @@ def ingest_paper(pdf_path: Path, pdf_id: str, clear_existing: bool = False):
 
     # Step 1: Extract text from PDF
     print("\n[1/5] Extracting text from PDF...")
-    pages_text = extract_text_from_pdf(pdf_path)
+    pages_text = extract_text_from_pdf_enhanced(pdf_path)
     print(f"✓ Extracted {len(pages_text)} pages")
 
-    # Step 2: Remove headers and footers
-    print("\n[2/5] Removing headers and footers...")
-    pages_text_cleaned = remove_repeated_headers_footers(pages_text)
-    print(f"✓ Cleaned {len(pages_text_cleaned)} pages")
+    # # Step 2: Remove headers and footers
+    # print("\n[2/5] Removing headers and footers...")
+    # pages_text_cleaned = remove_repeated_headers_footers(pages_text)
+    # print(f"✓ Cleaned {len(pages_text_cleaned)} pages")
 
     # Step 3: Hierarchical chunking with section awareness
     print("\n[3/5] Creating hierarchical chunks...")
-    full_text = "\n\n".join(pages_text_cleaned)
+    full_text = "\n\n".join(pages_text)
 
     # Use hierarchical strategy for best retrieval
     chunk_objects = chunk_document(
