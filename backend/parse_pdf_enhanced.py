@@ -110,3 +110,22 @@ def extract_with_ocr(pdf_path: Path) -> list[str]:
     
     return str_list
 
+# this function extracts tables from the pdf
+def extract_tables_from_page(pdf_path: Path, page_num: int) -> list[str]:
+    tables_as_strings = []
+
+    with pdfplumber.open(pdf_path) as pdf:
+        if page_num < 0 or page_num >= len(pdf.pages):
+            raise ValueError(f"Page number {page_num} out of range.")
+
+        page = pdf.pages[page_num]
+        tables = page.extract_tables() or []
+
+        for table in tables:
+            formatted_rows = [" | ".join(cell if cell is not None else "" for cell in row) for row in table]
+
+            table_str = "\n".join(formatted_rows)
+            tables_as_strings.append(table_str)
+    
+    return tables_as_strings
+
