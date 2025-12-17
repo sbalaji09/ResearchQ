@@ -150,6 +150,19 @@ def extract_all_tables(pdf_path: Path) -> dict[int, list[str]]:
     
     return tables_by_page
 
+# appends extracted tables to the end of each page's text
+def merge_tables_into_pages(pages_text: list[str], tables_by_page: dict[int, list[str]]) -> list[str]:
+    merged_pages = []
+    
+    for page_num, page_text in enumerate(pages_text):
+        if page_num in tables_by_page:
+            tables_section = "\n\n[TABLES]\n" + "\n\n".join(tables_by_page[page_num])
+            merged_pages.append(page_text + tables_section)
+        else:
+            merged_pages.append(page_text)
+    
+    return merged_pages
+
 def extract_text_from_pdf_enhanced(pdf_path: Path) -> list[str]:
     pdf_type = detect_pdf_type(pdf_path)
     
