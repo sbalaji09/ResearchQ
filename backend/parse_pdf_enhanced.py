@@ -10,6 +10,8 @@ from pdf2image import convert_from_path
 import pytesseract
 from unstructured.partition.pdf import partition_pdf
 
+from backend.parse_pdf import extract_text_from_pdf
+
 # Configure logger for this module
 logger = logging.getLogger("ingest")
 logger.setLevel(logging.DEBUG)
@@ -128,4 +130,17 @@ def extract_tables_from_page(pdf_path: Path, page_num: int) -> list[str]:
             tables_as_strings.append(table_str)
     
     return tables_as_strings
+
+def extract_text_from_pdf_enhanced(pdf_path: Path) -> list[str]:
+    pdf_type = detect_pdf_type(pdf_path)
+    
+    if pdf_type == "scanned":
+        return extract_with_ocr(pdf_path)
+    
+    try:
+        return extract_with_unstructured(pdf_path)
+    except Exception as e:
+        logging.warning(f"Unstructured failed: {e}, falling back to pypdf")
+    
+    return extract_text_from_pdf(pdf_path)
 
