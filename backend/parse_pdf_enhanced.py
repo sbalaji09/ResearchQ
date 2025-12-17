@@ -168,11 +168,18 @@ def extract_text_from_pdf_enhanced(pdf_path: Path) -> list[str]:
     
     if pdf_type == "scanned":
         return extract_with_ocr(pdf_path)
+    else:
+        try:
+            pages_text = extract_with_unstructured(pdf_path)
+        except Exception as e:
+            logger.warning(f"Unstructured failed: {e}, failling back to pypdf")
+            pages_text = extract_text_from_pdf(pdf_path)
     
-    try:
-        return extract_with_unstructured(pdf_path)
-    except Exception as e:
-        logging.warning(f"Unstructured failed: {e}, falling back to pypdf")
+    tables_by_page = extract_all_tables(pdf_path)
+
+    if tables_by_page:
+        logger.info(f"Found tables on {len(tables_by_page)} pages, merging...")
+        pages_text = merge_tables_into_pages(pages_text, tables_by_page)
     
-    return extract_text_from_pdf(pdf_path)
+    return pages_text
 
