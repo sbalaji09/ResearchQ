@@ -97,3 +97,16 @@ def extract_with_unstructured(pdf_path: Path) -> list[str]:
     )
 
     return pages
+
+# this function reads the actual image of the page and returns a list of strings with each one representing a page
+def extract_with_ocr(pdf_path: Path) -> list[str]:
+    images = convert_from_path(pdf_path, dpi=300)
+    str_list = []
+
+    for img in images:
+        img_str: str = pytesseract.image_to_string(img)
+        img_str = img_str.strip()
+        str_list.append(img_str)
+    
+    return str_list
+
