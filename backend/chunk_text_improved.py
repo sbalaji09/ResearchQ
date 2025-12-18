@@ -720,6 +720,12 @@ def chunk_document(
             document_id=document_id,
             max_chunk_size=chunk_size,
         )
+    elif strategy == "recursive":
+        chunks = chunk_recursive(
+            text,
+            document_id=document_id,
+            max_chunk_size=chunk_size,
+        )
     else:  # sentence (your original approach, improved)
         sections = split_into_sections(text)
         chunks = []
