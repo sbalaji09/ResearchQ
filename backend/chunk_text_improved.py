@@ -292,7 +292,10 @@ def create_chunks_hierarchical(
             continue
         
         section_text = clean_section_text(section_text, section_name)
-        if not section_text or len(section_text.split()) < 20:
+        section_words = section_text.split()
+        section_word_count = len(section_words)
+
+        if not section_text or section_word_count < 20:
             continue
         
         section_id = f"{document_id}_{section_name.lower().replace(' ', '_')}"
@@ -306,7 +309,7 @@ def create_chunks_hierarchical(
                 'chunk_id': section_id,
                 'section': section_name,
                 'chunk_type': 'section',
-                'token_count': len(section_text.split()),
+                'token_count': section_word_count,
             }
         )
         all_chunks.append(section_chunk)
@@ -320,11 +323,14 @@ def create_chunks_hierarchical(
         chunk_index = 0
         
         for sent in sentences:
-            sent_tokens = len(sent.split())
+            sent_words = sent.split()
+            sent_tokens = len(sent_words)
             
             if current_tokens + sent_tokens > small_chunk_size and current_chunk_sentences:
                 # Create chunk
                 chunk_text = ' '.join(current_chunk_sentences)
+                chunk_words = chunk_text.split()
+                chunk_word_count = len(chunk_words)
                 chunk = Chunk(
                     text=chunk_text,
                     metadata={
