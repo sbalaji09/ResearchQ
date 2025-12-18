@@ -29,16 +29,18 @@ Answering rules:
 
     return prompt
 
-
+# generate the user prompt with the question and context
 def generate_user_prompt(chunks_text: str, question: str):
-    """Generate the user prompt with the question and context."""
-    prompt = f"""CONTEXT FROM RESEARCH PAPER:
+    prompt = f"""Here is context from a research paper:
+
 {chunks_text}
 
----
+Question:
+{question}
 
-QUESTION: {question}
-
-Remember: Answer ONLY this specific question. Do not provide a general summary of the study. Focus directly on what is being asked."""
-
+Instructions:
+Answer ONLY this specific question using the information in the context above.
+Do not provide a general summary of the study.
+Do not add headings or section titles in your answer.
+Respond in plain prose."""
     return prompt
