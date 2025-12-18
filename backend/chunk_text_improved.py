@@ -594,6 +594,29 @@ def chunk_recursive(text: str, document_id: str = "doc", max_chunk_size: int = 4
             ))
     return chunks
 
+# compare different chunking strategies on the same text
+def compare_chunking_strategies(text: str, document_id: str = "test") -> Dict:
+    strategies = ["hierarchical", "paragraph", "sentence", "recursive"]
+    results = {}
+    
+    for strategy in strategies:
+        try:
+            chunks = chunk_document(text, document_id, strategy=strategy)
+            
+            token_counts = [c.metadata.get('token_count', len(c.text.split())) for c in chunks]
+            
+            results[strategy] = {
+                'num_chunks': len(chunks),
+                'avg_tokens': sum(token_counts) / len(token_counts) if token_counts else 0,
+                'min_tokens': min(token_counts) if token_counts else 0,
+                'max_tokens': max(token_counts) if token_counts else 0,
+                'sections_found': len(set(c.metadata.get('section', '') for c in chunks)),
+            }
+        except Exception as e:
+            results[strategy] = {'error': str(e)}
+    
+    return results
+
 
 
 # =============================================================================
