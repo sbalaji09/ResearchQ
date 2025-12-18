@@ -472,6 +472,97 @@ def chunk_by_paragraphs(
     
     return all_chunks
 
+def chunk_recursive(text: str, document_id: str = "doc", max_chunk_size: int = 400, min_chunk_size: int = 50) -> List[Chunk]:
+    chunks: List[Chunk] = []
+    chunk_index = 0
+
+    sections = split_into_sections(text)
+    raw_chunks: List[Chunk] = []
+
+    for section in sections:
+        section_title = section.get("title", "")
+        section_content = section.get("content", "")
+
+        if not section_content.strip():
+            continue
+
+        paragraphs = re.split(r'\n\s*\n', section_content)
+        paragraphs = [p.strip() for p in paragraphs if p.strip()]
+
+        pending_chunks: List[str] = []
+
+        for para in paragraphs:
+            word_count = len(para.split())
+
+            if word_count <= max_chunk_size:
+                pending_chunks.append(para)
+            else:
+                sentences = split_into_sentences(para)
+
+                current_sentence_group = []
+                current_word_count = 0
+
+                for sentence in sentences:
+                    sentence_words = len(sentences.split())
+
+                    if sentence_words > max_chunk_size:
+                        if current_sentence_group:
+                            pending_chunks.append(" ".join(current_sentence_group))
+                            current_sentence_group = []
+                            current_word_count = 0
+                        
+                        words = sentence.split()
+                        for i in range(0, len(words), max_chunk_size):
+                            word_chunk = " ".join(words[i:i + max_chunk_size])
+                            pending_chunks.append(word_chunk)
+                    elif current_word_count + sentence_words <= max_chunk_size:
+                        current_sentence_group.append(sentence)
+                        current_word_count += sentence_words
+                    else:
+                        if current_sentence_group:
+                            pending_chunks.append(" ".join(current_sentence_group))
+                        current_sentence_group = [sentence]
+                        current_word_count = sentence_words
+                
+                if current_sentence_group:
+                    pending_chunks.append(" ".join(current_sentence_group))
+        
+        merged_chunks: List[str] = []
+        for chunk_text in pending_chunks:
+            if not merged_chunks:
+                merged_chunks.append(chunk_text)
+            elif len(merged_chunks[-1].split()) < min_chunk_size:
+                merged_chunks[-1] = merged_chunks[-1] + "\n\n" + chunk_text
+            elif len(chunk_text.split()) < min_chunk_size and merged_chunks:
+                merged_chunks[-1] = merged_chunks[-1] + "\n\n" + chunk_text
+            else:
+                merged_chunks.append(chunk_text)
+
+        for chunk_text in merged_chunks:
+            word_count = len(chunk_text.split())
+
+            if word_count <= min_chunk_size:
+                chunk_type = "merged"
+            elif "\n\n" in chunk_text:
+                chunk_type = "paragraph"
+            else:
+                chunk_type = "sentence"
+            
+            chunks.append(Chunk(
+                chunk_id=f"{document_id}_chunk_{chunk_index}",
+                text=chunk_text,
+                start_char=text.find(chunk_text[:50]) if len(chunk_text) >= 50 else text.find(chunk_text),
+                end_char=0,
+                word_count=word_count,
+                metadata={
+                    "section": section_title,
+                    "chunk_type": chunk_type,
+                    "method": "recursive"
+                }
+            ))
+    return chunks
+
+
 
 # =============================================================================
 # QUERY-AWARE CHUNKING ENHANCEMENT
