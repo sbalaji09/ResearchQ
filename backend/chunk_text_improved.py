@@ -513,100 +513,121 @@ def chunk_by_paragraphs(
     return all_chunks
 
 def chunk_recursive(text: str, document_id: str = "doc", max_chunk_size: int = 400, min_chunk_size: int = 50) -> List[Chunk]:
+    """
+    Recursive chunking: tries larger units first, splits smaller if needed.
+
+    Order of splitting:
+    1. By section (if detected)
+    2. By paragraph (double newline)
+    3. By sentence (if paragraph too big)
+    4. By words (last resort for very long sentences)
+    """
     chunks: List[Chunk] = []
     chunk_index = 0
 
     sections = split_into_sections(text)
-    raw_chunks: List[Chunk] = []
 
-    current_pos = 0
+    for section_name, section_content in sections:
+        # Skip sections that hurt retrieval
+        if section_name in SKIP_SECTIONS:
+            continue
 
-    for section in sections:
-        section_title = section.get("title", "")
-        section_content = section.get("content", "")
-
+        section_content = clean_section_text(section_content, section_name)
         if not section_content.strip():
             continue
 
+        section_id = f"{document_id}_{section_name.lower().replace(' ', '_')}"
         paragraphs = re.split(r'\n\s*\n', section_content)
         paragraphs = [p.strip() for p in paragraphs if p.strip()]
 
-        pending_chunks: List[str] = []
+        pending_chunks: List[Tuple[str, int]] = []  # (text, word_count)
 
         for para in paragraphs:
-            word_count = len(para.split())
+            para_words = para.split()
+            word_count = len(para_words)
 
             if word_count <= max_chunk_size:
-                pending_chunks.append(para)
+                pending_chunks.append((para, word_count))
             else:
+                # Paragraph too big, split by sentences
                 sentences = split_into_sentences(para)
 
-                current_sentence_group = []
+                current_sentence_group: List[str] = []
                 current_word_count = 0
 
                 for sentence in sentences:
                     sent_word_list = sentence.split()
-                    sentence_words = len(sent_word_list)
+                    sentence_word_count = len(sent_word_list)
 
-                    if sentence_words > max_chunk_size:
+                    if sentence_word_count > max_chunk_size:
+                        # Sentence too big, flush current group first
                         if current_sentence_group:
-                            pending_chunks.append(" ".join(current_sentence_group))
+                            group_text = " ".join(current_sentence_group)
+                            pending_chunks.append((group_text, current_word_count))
                             current_sentence_group = []
                             current_word_count = 0
-                        
+
+                        # Split by words as last resort
                         for i in range(0, len(sent_word_list), max_chunk_size):
                             word_chunk = " ".join(sent_word_list[i:i + max_chunk_size])
-                            pending_chunks.append(word_chunk)
-                    elif current_word_count + sentence_words <= max_chunk_size:
+                            pending_chunks.append((word_chunk, len(sent_word_list[i:i + max_chunk_size])))
+                    elif current_word_count + sentence_word_count <= max_chunk_size:
                         current_sentence_group.append(sentence)
-                        current_word_count += sentence_words
+                        current_word_count += sentence_word_count
                     else:
+                        # Would exceed max, flush current group
                         if current_sentence_group:
-                            pending_chunks.append(" ".join(current_sentence_group))
+                            group_text = " ".join(current_sentence_group)
+                            pending_chunks.append((group_text, current_word_count))
                         current_sentence_group = [sentence]
-                        current_word_count = sentence_words
-                
+                        current_word_count = sentence_word_count
+
+                # Don't forget remaining sentences
                 if current_sentence_group:
-                    pending_chunks.append(" ".join(current_sentence_group))
-        
-        merged_chunks: List[str] = []
-        for chunk_text in pending_chunks:
+                    group_text = " ".join(current_sentence_group)
+                    pending_chunks.append((group_text, current_word_count))
+
+        # Merge small chunks with neighbors
+        merged_chunks: List[Tuple[str, int]] = []
+        for chunk_text, word_count in pending_chunks:
             if not merged_chunks:
-                merged_chunks.append(chunk_text)
-            elif len(merged_chunks[-1].split()) < min_chunk_size:
-                merged_chunks[-1] = merged_chunks[-1] + "\n\n" + chunk_text
-            elif len(chunk_text.split()) < min_chunk_size and merged_chunks:
-                merged_chunks[-1] = merged_chunks[-1] + "\n\n" + chunk_text
+                merged_chunks.append((chunk_text, word_count))
+            elif merged_chunks[-1][1] < min_chunk_size:
+                # Previous chunk too small, merge with it
+                new_text = merged_chunks[-1][0] + "\n\n" + chunk_text
+                new_count = merged_chunks[-1][1] + word_count
+                merged_chunks[-1] = (new_text, new_count)
+            elif word_count < min_chunk_size:
+                # Current chunk too small, merge with previous
+                new_text = merged_chunks[-1][0] + "\n\n" + chunk_text
+                new_count = merged_chunks[-1][1] + word_count
+                merged_chunks[-1] = (new_text, new_count)
             else:
-                merged_chunks.append(chunk_text)
+                merged_chunks.append((chunk_text, word_count))
 
-        for chunk_text in merged_chunks:
-            word_count = len(chunk_text.split())
-
+        # Create Chunk objects
+        for chunk_text, word_count in merged_chunks:
             if word_count <= min_chunk_size:
                 chunk_type = "merged"
             elif "\n\n" in chunk_text:
                 chunk_type = "paragraph"
             else:
                 chunk_type = "sentence"
-            
-            start_char = current_pos
-            end_char = start_char + len(chunk_text)
+
             chunks.append(Chunk(
-                chunk_id=f"{document_id}_chunk_{chunk_index}",
                 text=chunk_text,
-                start_char=start_char,
-                end_char=end_char,
-                word_count=word_count,
                 metadata={
-                    "section": section_title,
+                    "document_id": document_id,
+                    "chunk_id": f"{section_id}_r{chunk_index}",
+                    "section": section_name,
                     "chunk_type": chunk_type,
+                    "token_count": word_count,
                     "method": "recursive"
                 }
             ))
 
             chunk_index += 1
-            current_pos = end_char
+
     return chunks
 
 # compare different chunking strategies on the same text
