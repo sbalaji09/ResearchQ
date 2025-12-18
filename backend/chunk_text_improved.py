@@ -545,7 +545,8 @@ def chunk_recursive(text: str, document_id: str = "doc", max_chunk_size: int = 4
                 current_word_count = 0
 
                 for sentence in sentences:
-                    sentence_words = len(sentences.split())
+                    sent_word_list = sentence.split()
+                    sentence_words = len(sent_word_list)
 
                     if sentence_words > max_chunk_size:
                         if current_sentence_group:
@@ -553,9 +554,8 @@ def chunk_recursive(text: str, document_id: str = "doc", max_chunk_size: int = 4
                             current_sentence_group = []
                             current_word_count = 0
                         
-                        words = sentence.split()
-                        for i in range(0, len(words), max_chunk_size):
-                            word_chunk = " ".join(words[i:i + max_chunk_size])
+                        for i in range(0, len(sent_word_list), max_chunk_size):
+                            word_chunk = " ".join(sent_word_list[i:i + max_chunk_size])
                             pending_chunks.append(word_chunk)
                     elif current_word_count + sentence_words <= max_chunk_size:
                         current_sentence_group.append(sentence)
