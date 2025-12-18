@@ -410,13 +410,15 @@ def chunk_by_paragraphs(
         section_id = f"{document_id}_{section_name.lower().replace(' ', '_')}"
         
         for para in paragraphs:
-            para_tokens = len(para.split())
+            para_words = para.split()
+            para_tokens = len(para_words)
             
             # If paragraph alone exceeds max, split it by sentences
             if para_tokens > max_chunk_size:
                 # Save current chunk first
                 if current_chunk:
                     chunk_text = '\n\n'.join(current_chunk)
+                    chunk_word_count = len(chunk_text.split())
                     all_chunks.append(Chunk(
                         text=chunk_text,
                         metadata={
@@ -424,7 +426,7 @@ def chunk_by_paragraphs(
                             'chunk_id': f"{section_id}_p{chunk_index}",
                             'section': section_name,
                             'chunk_type': 'paragraph',
-                            'token_count': len(chunk_text.split()),
+                            'token_count': chunk_word_count,
                         }
                     ))
                     chunk_index += 1
