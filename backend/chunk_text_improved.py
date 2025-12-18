@@ -60,6 +60,24 @@ SECTION_PATTERNS = [
     (r'^\s*\d+\.?\s*results?\s*$', 'Results'),
     (r'^\s*\d+\.?\s*discussion\s*$', 'Discussion'),
     (r'^\s*\d+\.?\s*conclusions?\s*$', 'Conclusion'),
+
+    # ALL-CAPS headers (common in some journals)
+    (r'^\s*ABSTRACT\s*$', 'Abstract'),
+    (r'^\s*INTRODUCTION\s*$', 'Introduction'),
+    (r'^\s*METHODS?\s*$', 'Methods'),
+    (r'^\s*RESULTS?\s*$', 'Results'),
+    (r'^\s*DISCUSSION\s*$', 'Discussion'),
+    (r'^\s*CONCLUSIONS?\s*$', 'Conclusion'),
+
+    # Roman numeral sections (e.g., "I. Introduction", "II. Methods")
+    (r'^\s*[IVX]+\.?\s*introduction\s*$', 'Introduction'),
+    (r'^\s*[IVX]+\.?\s*methods?\s*$', 'Methods'),
+    (r'^\s*[IVX]+\.?\s*results?\s*$', 'Results'),
+    (r'^\s*[IVX]+\.?\s*discussion\s*$', 'Discussion'),
+    (r'^\s*[IVX]+\.?\s*conclusions?\s*$', 'Conclusion'),
+
+    # Subsections (optional - helps with granularity)
+    (r'^\s*\d+\.\d+\.?\s+\w+', 'Subsection'),
 ]
 
 # Sections to skip or handle specially (they hurt retrieval)
@@ -82,6 +100,20 @@ def detect_section(line: str) -> Optional[str]:
     for pattern, section_name in SECTION_PATTERNS:
         if re.match(pattern, line_clean, re.IGNORECASE):
             return section_name
+    
+    return None
+
+# detect subsection headers like '2.1 Data Collection'
+def detect_subsection(line: str) -> Optional[str]:
+    line_clean = line.strip()
+    
+    # Numbered subsections: 2.1, 3.2.1, etc.
+    if re.match(r'^\d+\.\d+\.?\s+\w+', line_clean):
+        return line_clean
+    
+    # Letter subsections: A., B., etc.
+    if re.match(r'^[A-Z]\.\s+\w+', line_clean):
+        return line_clean
     
     return None
 
