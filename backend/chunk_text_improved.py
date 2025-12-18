@@ -511,6 +511,8 @@ def chunk_recursive(text: str, document_id: str = "doc", max_chunk_size: int = 4
     sections = split_into_sections(text)
     raw_chunks: List[Chunk] = []
 
+    current_pos = 0
+
     for section in sections:
         section_title = section.get("title", "")
         section_content = section.get("content", "")
@@ -580,11 +582,13 @@ def chunk_recursive(text: str, document_id: str = "doc", max_chunk_size: int = 4
             else:
                 chunk_type = "sentence"
             
+            start_char = current_pos
+            end_char = start_char + len(chunk_text)
             chunks.append(Chunk(
                 chunk_id=f"{document_id}_chunk_{chunk_index}",
                 text=chunk_text,
-                start_char=text.find(chunk_text[:50]) if len(chunk_text) >= 50 else text.find(chunk_text),
-                end_char=0,
+                start_char=start_char,
+                end_char=end_char,
                 word_count=word_count,
                 metadata={
                     "section": section_title,
@@ -592,6 +596,9 @@ def chunk_recursive(text: str, document_id: str = "doc", max_chunk_size: int = 4
                     "method": "recursive"
                 }
             ))
+
+            chunk_index += 1
+            current_pos = end_char
     return chunks
 
 # compare different chunking strategies on the same text
