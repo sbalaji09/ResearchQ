@@ -120,6 +120,34 @@ def delete_paper_vectors(pdf_id: str) -> int:
     
     return 0
 
+def ingest_multiple_papers(pdf_dir: Path, clear_existing: bool = False) -> dict:
+    results = {}
+    pdf_files = list(pdf_dir.glob("*.pdf"))
+
+    if not pdf_files:
+        print(f"No PDF files found in {pdf_dir}")
+        return results
+    
+    for i, pdf_path in enumerate(pdf_files):
+        # gets filename without extension
+        pdf_id = pdf_path.stem
+        should_clear = clear_existing and (i == 0)
+
+        try:
+            chunk_count = ingest_paper(
+                pdf_path=pdf_path,
+                pdf_id=pdf_id,
+                clear_existing=should_clear
+            )
+
+            results[pdf_id] = {"status": "success", "chunks": chunk_count}
+        except Exception as e:
+            results[pdf_id] = {"status": "error", "error": str(e)}
+            print(f"Failed to ingest {pdf_path.name}: {e}")
+    
+    return results
+
+
 def main():
     """Ingest the research paper"""
 
