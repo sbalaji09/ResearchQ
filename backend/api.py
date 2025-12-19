@@ -121,14 +121,17 @@ async def ask_question(payload: AskRequest):
     raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
   try:
-    answer = content_generator(question, pdf_ids=payload.pdf_ids)
+    result = content_generator(question, pdf_ids=payload.pdf_ids)
+
+    answer = result.get("answer", "")
+    citations = result.get("citations", [])
 
     if not isinstance(answer, str) or not answer.strip():
         raise ValueError("content_generator returned an empty or invalid answer")
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Failed to generate answer: {e}")
 
-  return AskResponse(answer=answer)
+  return AskResponse(answer=answer, citations=citations)
 
 # list PDFs saved in backend/test_papers
 @app.get("/papers", response_model=List[PaperInfo])
