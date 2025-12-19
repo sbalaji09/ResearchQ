@@ -52,12 +52,28 @@ def answer_generation(chunks: list[str], question: str, metadata: dict):
         )
 
         answer_text = response.choices[0].message.content
+
+        if not answer_text or not answer_text.strip():
+            return {
+                "answer": "I was unable to generate an answer from the available information.",
+                "citations": citations,
+                "error_code": "EMPTY_RESPONSE"
+            }
+        
         answer_text = validate_citations(answer_text, len(chunks))
 
-        return {
+        hallucination_check = detect_hallucination(answer_text, chunks)
+
+        result = {
             "answer": answer_text,
             "citations": citations,
         }
+
+        if hallucination_check["is_suspicious"]:
+            result["hallucination_warning"] = hallucination_check["reason"]
+            result["answer"] = f"Note: This answer may contain information not directly from the source documents.\n\n{answer_text}"
+        
+        return result
 
     except Exception as e:
         print(f"An error occurred: {e}")
