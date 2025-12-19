@@ -55,10 +55,15 @@ class AskRequest(BaseModel):
   question: str
   pdf_ids: list[str] = None
 
-
+class Citation(BaseModel):
+    id: int
+    document: str
+    section: str
+    text: str
+  
 class AskResponse(BaseModel):
   answer: str
-
+  citations: list[Citation] = []
 
 class UploadResponse(BaseModel):
   status: str
