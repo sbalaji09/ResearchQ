@@ -10,6 +10,7 @@ from pdf2image import convert_from_path
 import pytesseract
 from unstructured.partition.pdf import partition_pdf
 
+from backend.exceptions import *
 from parse_pdf import extract_text_from_pdf
 
 # Configure logger for this module
@@ -183,3 +184,24 @@ def extract_text_from_pdf_enhanced(pdf_path: Path) -> list[str]:
     
     return pages_text
 
+# validates extracted text quality
+def validate_extracted_text(pages_text: list[str], pdf_path: Path, min_chars_per_page: int = 50) -> list[str]:
+    if not pages_text:
+        raise NoTextExtractedError(pdf_path.name)
+    
+    total_chars = sum(len(page) for page in pages_text)
+    non_empty_pages = sum(1 for page in pages_text if len(page.strip()) > min_chars_per_page)
+
+    if total_chars < 100:
+        raise NoTextExtractedError(pdf_path.name)
+
+    if non_empty_pages == 0:
+        raise NoTextExtractedError(pdf_path.name)
+
+    empty_pages = len(pages_text) - non_empty_pages
+    if empty_pages > len(pages_text) * 0.5:
+        logger.warning(
+            f"{pdf_path.name}: {empty_pages}/{len(pages_text)} pages have little / no text"
+        )
+    
+    return pages_text
