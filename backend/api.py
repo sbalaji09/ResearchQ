@@ -73,6 +73,8 @@ class ClearResponse(BaseModel):
   status: str
   message: str
 
+class DeletePaperRequest(BaseModel):
+    pdf_id: str
 
 # ---------------- Routes ----------------
 
@@ -93,7 +95,7 @@ async def upload_pdf(file: UploadFile = File(...)):
     file_bytes = await file.read()
     dest_path.write_bytes(file_bytes)
 
-    ingest_paper(dest_path, pdf_id=safe_filename.replace(".pdf", ""), clear_existing=True)
+    ingest_paper(dest_path, pdf_id=safe_filename.replace(".pdf", ""), clear_existing=False)
 
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Failed to process PDF: {e}")
@@ -155,3 +157,19 @@ async def clear_data():
 
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Failed to clear data: {e}")
+
+@app.post("/papers/delete")
+async def delete_paper(payload: DeletePaperRequest):
+  pdf_id = payload.pdf_id
+
+  try:
+    from ingest_paper import delete_paper_vectors
+    delete_paper_vectors(pdf_id)
+
+    pdf_path = TEST_PAPERS_DIR / f"{pdf_id}.pdf"
+    if pdf_path.exists():
+      pdf_path.unlink()
+    
+    return {"status": "success", "message": f"Deleted paper: {pdf_id}"}
+  except Exception as e:
+    raise HTTPException(status_code=500, detail=f"Failed to delete paper: {e}")
