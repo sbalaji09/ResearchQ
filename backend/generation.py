@@ -86,3 +86,38 @@ def validate_citations(answer: str, max_citation: int) -> str:
     
     validated = re.sub(citation_pattern, replace_invalid, answer)
     return validated
+
+# detect potential hallucinations by checking if key claims appear in chunks
+def detect_hallucination(answer: str, chunks: list[str], threshold: float = 0.3) -> dict:
+    suspicious_patterns = [
+        r'\b(according to|as started|the (study|paper|research) (shows|found|states))\b.*?\.',
+    ]
+
+    total_chunk_length = sum(len(c) for c in chunks)
+    if len(answer) > total_chunk_length * 1.5 and len(answer) > 500:
+        return {
+            "is_suspicious": True,
+            "confidence": 0.6,
+            "reason": "Answer is significantly longer than source material"
+        }
+    
+    answer_numbers = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', answer))
+    chunk_numbers = set()
+    for chunk in chunks:
+        chunk_numbers.update(re.findall(r'\b\d+(?:\.\d+)?%?\b', chunk))
+    
+    unsupported_numbers = answer_numbers - chunk_numbers
+    unsupported_numbers = {n for n in unsupported_numbers if not (1900 <= int(re.sub(r'[^\d]', '', n) or 0) <= 2030)}
+
+    if len(unsupported_numbers) > 2:
+        return {
+            "is_suspicious": True,
+            "confidence": 0.7,
+            "reason": f"Answer contains numbers not found in source: {unsupported_numbers}"
+        }
+
+    return {
+        "is_suspicious": False,
+        "confidence": 0.9,
+        "reason": None
+    }
