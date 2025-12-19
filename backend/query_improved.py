@@ -152,10 +152,10 @@ def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None) ->
         )
     except Exception as e:
         # Fallback message if retrieval itself fails
-        return f"Something went wrong during retrieval: {e}"
+        return {"answer": f"Something went wrong during retrieval: {e}", "citations": []}
 
     if not results:
-        return "No relevant information found in the documents."
+        return {"answer": "No relevant information found in the documents.", "citations": []}
 
     # Step 2: Extract text chunks and build metadata for citations
     chunks: list[str] = []
@@ -163,14 +163,13 @@ def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None) ->
         "sections": [],
         "chunk_ids": [],
         "scores": [],
-        "documents": None,
+        "documents": [],
     }
 
     for i, result in enumerate(results):
         # Robust access with defaults
         text = result.get("text") or result.get("metadata", {}).get("text", "")
         if not text:
-            # Skip empty chunks
             continue
 
         chunks.append(text)
@@ -179,19 +178,20 @@ def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None) ->
         metadata["scores"].append(result.get("final_score", 0.0))
 
         doc_id = result.get("metadata", {}).get("pdf_id", "unknown")
-        if doc_id not in metadata["documents"]:
-            metadata["documents"].append(doc_id)
+        metadata["documents"].append(doc_id)
 
     if not chunks:
-        return "I retrieved some chunks, but they were empty or invalid."
+        return {"answer": "I retrieved some chunks, but they were empty.", "citations": []}
 
     # Step 3: Generate answer with metadata for citations
     try:
-        answer = answer_generation(chunks, question, metadata)
+        result = answer_generation(chunks, question, metadata)
+        if result is None:
+            return {"answer": "Failed to generate answer.", "citations": []}
+        return result
     except Exception as e:
         return f"Something went wrong during answer generation: {e}"
 
-    # 🔴 Critical: Always return a non-empty string
     if not isinstance(answer, str) or not answer.strip():
         return "I was unable to generate a valid answer from the retrieved context."
 
