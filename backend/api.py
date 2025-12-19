@@ -53,6 +53,7 @@ TEST_PAPERS_DIR.mkdir(exist_ok=True)
 
 class AskRequest(BaseModel):
   question: str
+  pdf_ids: list[str] = None
 
 
 class AskResponse(BaseModel):
@@ -115,7 +116,7 @@ async def ask_question(payload: AskRequest):
     raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
   try:
-    answer = content_generator(question)
+    answer = content_generator(question, pdf_ids=payload.pdf_ids)
 
     if not isinstance(answer, str) or not answer.strip():
         raise ValueError("content_generator returned an empty or invalid answer")
