@@ -39,16 +39,11 @@ Formatting rules:
 
 # generate the user prompt with the question and context
 def generate_user_prompt(chunks_text: str, question: str):
-    prompt = f"""Here is context from a research paper:
+    prompt = f"""Here are numbered excerpts from research papers:
 
 {chunks_text}
 
-Question:
-{question}
+Question: {question}
 
-Instructions:
-Answer ONLY this specific question using the information in the context above.
-Do not provide a general summary of the study.
-Do not add headings or section titles in your answer.
-Respond in plain prose."""
+Answer the question using the excerpts above. Cite sources using [1], [2], etc."""
     return prompt
