@@ -1,3 +1,4 @@
+import re
 from dotenv import load_dotenv
 from openai import OpenAI
 import os
@@ -51,6 +52,7 @@ def answer_generation(chunks: list[str], question: str, metadata: dict):
         )
 
         answer_text = response.choices[0].message.content
+        answer_text = validate_citations(answer_text, len(chunks))
 
         return {
             "answer": answer_text,
@@ -70,3 +72,17 @@ def format_chunks_for_prompts(chunks: list[str], metadata: dict) -> str:
         formatted.append(f"[Document: {doc_id}, Section: {section}]\n{chunk}")
     
     return "\n\n---\n\n".join(formatted)
+
+# validates that citation numbers in the answer are valid and removes or flags invalid citations
+def validate_citations(answer: str, max_citation: int) -> str:
+    citation_pattern = r'\[(\d+)\]'
+
+    def replace_invalid(match):
+        citation_num = int(match.group(1))
+        if 1 <= citation_num <= max_citation:
+            return match.group(0)
+        else:
+            return ""
+    
+    validated = re.sub(citation_pattern, replace_invalid, answer)
+    return validated
