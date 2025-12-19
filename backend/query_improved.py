@@ -1,6 +1,3 @@
-"""
-Improved query script with section-aware retrieval and better ranking
-"""
 from openai import OpenAI
 import os
 from pinecone import Pinecone
@@ -20,24 +17,14 @@ load_dotenv(env_path)
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 
-
+# query with section-aware boosting and optional reranking for better precision
 def query_with_section_boost(
     question: str,
     top_k: int = 10,
     boost_factor: float = 2.0,  # Stronger boost for better signal
     use_reranking: bool = True,
+    pdf_ids: list[str] = None,
 ) -> list:
-    """
-    Query with section-aware boosting and optional reranking for better precision
-
-    Improvements:
-    1. Detects question type (methods, results, limitations, etc.)
-    2. Boosts chunks from relevant sections
-    3. Hybrid ranking: semantic + keyword + section relevance
-    4. Optional cross-encoder reranking for precision
-    5. Multi-query expansion for better recall
-    """
-
     # Step 1: Expand query for better recall
     expanded_queries = expand_query(question)
     all_candidates = {}  # chunk_id -> best result
@@ -54,10 +41,18 @@ def query_with_section_boost(
         index_name = os.environ.get("PINECONE_INDEX_NAME")
         index = pc.Index(index_name)
 
+        query_filter = None
+        if pdf_ids:
+            if len(pdf_ids) == 1:
+                query_filter = {"pdf_id": {"$eq": pdf_ids[0]}}
+            else:
+                query_filter = {"pdf_id": {"$in": pdf_ids}}
+
         results = index.query(
             vector=query_embedding,
             top_k=top_k * 3,  # Get more candidates for reranking
-            include_metadata=True
+            include_metadata=True,
+            filter=query_filter
         )
 
         # Aggregate results (keep highest scoring variant)
