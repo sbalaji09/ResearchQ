@@ -60,20 +60,26 @@ class Citation(BaseModel):
     document: str
     section: str
     text: str
+
+class ErrorDetail(BaseModel):
+  error_code: str
+  message: str
+  suggestion: str = None
   
 class AskResponse(BaseModel):
   answer: str
   citations: list[Citation] = []
+  warning: str = None
+  confidence: str = None
+  error: ErrorDetail = None
 
 class UploadResponse(BaseModel):
   status: str
   filename: str
 
-
 class PaperInfo(BaseModel):
   filename: str
   path: str
-
 
 class ClearResponse(BaseModel):
   status: str
@@ -81,11 +87,6 @@ class ClearResponse(BaseModel):
 
 class DeletePaperRequest(BaseModel):
   pdf_id: str
-
-class PaperInfo(BaseModel):
-  filename: str
-  pdf_id: str
-  path: str
 
 # ---------------- Routes ----------------
 
