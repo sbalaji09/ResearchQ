@@ -25,7 +25,8 @@ Answering rules:
 - Start by directly answering the question in plain language.
 - Be concise and direct. Avoid long introductions or unrelated background.
 - If the question has multiple parts, answer each part clearly.
-- When relevant, you may mention the section name in parentheses, e.g. (Results), using the section names from the text."""
+- Cite sources in format: (Document Name, Section Name)
+Example: (research_paper_1, Methods)"""
 
     return prompt
 

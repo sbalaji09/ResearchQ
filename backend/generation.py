@@ -41,3 +41,13 @@ def answer_generation(chunks: list[str], question: str, metadata: dict):
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
+
+def format_chunks_for_prompts(chunks: list[str], metadata: dict) -> str:
+    formatted = []
+    for i, chunk in enumerate(chunks):
+        section = metadata["sections"][i] if i < len(metadata["sections"]) else "Unknown"
+        doc_id = metadata.get("documents", ["unknown"])[0]
+
+        formatted.append(f"[Document: {doc_id}, Section: {section}]\n{chunk}")
+    
+    return "\n\n---\n\n".join(formatted)
