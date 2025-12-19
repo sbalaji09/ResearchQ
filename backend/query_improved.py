@@ -163,7 +163,7 @@ def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None) ->
         "sections": [],
         "chunk_ids": [],
         "scores": [],
-        "document_id": None,
+        "documents": None,
     }
 
     for i, result in enumerate(results):
@@ -178,12 +178,9 @@ def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None) ->
         metadata["chunk_ids"].append(result.get("id", f"chunk_{i}"))
         metadata["scores"].append(result.get("final_score", 0.0))
 
-        if metadata["document_id"] is None:
-            metadata["document_id"] = (
-                result.get("metadata", {}).get("document_id")
-                or result.get("metadata", {}).get("pdf_id")
-                or "unknown"
-            )
+        doc_id = result.get("metadata", {}).get("pdf_id", "unknown")
+        if doc_id not in metadata["documents"]:
+            metadata["documents"].append(doc_id)
 
     if not chunks:
         return "I retrieved some chunks, but they were empty or invalid."
