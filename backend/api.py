@@ -74,7 +74,12 @@ class ClearResponse(BaseModel):
   message: str
 
 class DeletePaperRequest(BaseModel):
-    pdf_id: str
+  pdf_id: str
+
+class PaperInfo(BaseModel):
+  filename: str
+  pdf_id: str
+  path: str
 
 # ---------------- Routes ----------------
 
@@ -158,6 +163,7 @@ async def clear_data():
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Failed to clear data: {e}")
 
+# deletes all the vectors with certain pdf id
 @app.post("/papers/delete")
 async def delete_paper(payload: DeletePaperRequest):
   pdf_id = payload.pdf_id
@@ -173,3 +179,19 @@ async def delete_paper(payload: DeletePaperRequest):
     return {"status": "success", "message": f"Deleted paper: {pdf_id}"}
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Failed to delete paper: {e}")
+
+# gets all the papers uploaded
+@app.get("/papers", response_model=List[PaperInfo])
+async def list_papers():
+  papers: List[PaperInfo] = []
+
+  for pdf_path in TEST_PAPERS_DIR.glob("*pdf"):
+    papers.append(
+      PaperInfo(
+        filename=pdf_path.name,
+        pdf_id=pdf_path.stem,
+        path=str(pdf_path.relative_to(BASE_DIR))
+      )
+    )
+  
+  return papers
