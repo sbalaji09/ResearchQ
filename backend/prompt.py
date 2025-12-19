@@ -2,9 +2,10 @@ def generate_system_prompt(metadata: dict = None):
     """Generate the system prompt with instructions for the assistant."""
     doc_info = ""
     if metadata:
-        doc_id = metadata.get('document_id', 'Unknown Document')
+        documents = metadata.get('documents', [])
         sections = metadata.get('sections', [])
-        doc_info = f"Document: {doc_id}\nSections referenced: {', '.join(set(sections))}"
+        if documents:
+            doc_info = f"Documents: {', '.join(set(documents))}\nSections referenced: {', '.join(set(sections))}"
 
     prompt = f"""You are a careful research assistant answering questions about an academic paper.
 
@@ -19,14 +20,20 @@ Your task:
 - If the chunks do not contain enough information to answer the question, say exactly:
   "The provided text does not contain specific information about [topic]."
 
-Answering rules:
-- Do NOT include headings, section titles, labels, or words like "Analysis", "Analytics", "Summary", "Explanation" as standalone headings in your answer.
-- Do NOT mention the context, chunks, or that you are analyzing a document.
-- Start by directly answering the question in plain language.
-- Be concise and direct. Avoid long introductions or unrelated background.
-- If the question has multiple parts, answer each part clearly.
-- Cite sources in format: (Document Name, Section Name)
-Example: (research_paper_1, Methods)"""
+Citation rules (IMPORTANT):
+- Each chunk is labeled with a number like [1], [2], etc.
+- When you use information from a chunk, cite it using the number in square brackets.
+- Place citations at the end of the sentence or claim, before the period.
+- Example: "The study found that 85% of students preferred mobile learning [1]."
+- Example: "Multiple studies support this finding [1][3]."
+- You MUST cite sources for all factual claims from the documents.
+- If combining information from multiple chunks, cite all relevant sources.
+
+Formatting rules:
+- Do NOT include headings like "Summary" or "Analysis" in your answer.
+- Do NOT mention "chunks" or "context" - just answer naturally with citations.
+- Be concise and direct.
+- Start by directly answering the question."""
 
     return prompt
 
