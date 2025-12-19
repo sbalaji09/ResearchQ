@@ -110,6 +110,15 @@ def ingest_paper(pdf_path: Path, pdf_id: str, clear_existing: bool = False):
 
     return len(chunk_objects)
 
+# deletes all the vecotrs for a specific pdf
+def delete_paper_vectors(pdf_id: str) -> int:
+    from embeddings import pc
+    index_name = os.environ.get("PINECONE_INDEX_NAME")
+    index = pc.Index(index_name)
+
+    index.delete(filter={"pdf_id": {"$eq": pdf_id}})
+    
+    return 0
 
 def main():
     """Ingest the research paper"""
@@ -127,7 +136,7 @@ def main():
     total_chunks = ingest_paper(
         pdf_path=pdf_path,
         pdf_id=pdf_id,
-        clear_existing=True  # Clear old chunks first
+        clear_existing=False  # Clear old chunks first
     )
 
     print(f"\n📊 Comparison:")
