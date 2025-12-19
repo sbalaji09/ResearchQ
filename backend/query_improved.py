@@ -10,6 +10,11 @@ from retrieval import (
     expand_query,
 )
 
+from exceptions import NoRelevantChunksError, LowRelevanceError, RetrievalError, GenerationError
+
+MIN_RELEVANCE_SCORE = 0.25  # Below this, results are likely irrelevant
+LOW_RELEVANCE_WARNING = 0.4  # Below this, warn user about low confidence
+
 # Load environment
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
@@ -152,12 +157,30 @@ def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None) ->
         )
     except Exception as e:
         # Fallback message if retrieval itself fails
-        return {"answer": f"Something went wrong during retrieval: {e}", "citations": []}
-
+        return {
+            "answer": "I encountered an error while searching the documents. Please try again.",
+            "citations": [],
+            "error": f"Retrieval error: {str(e)}",
+            "error_code": "RETRIEVAL_ERROR"
+        }
+    
     if not results:
-        return {"answer": "No relevant information found in the documents.", "citations": []}
+        return {
+            "answer": "No documents have been uploaded yet. Please upload a PDF first.",
+            "citations": [],
+            "error_code": "NO_DOCUMENTS"
+        }
 
-    # Step 2: Extract text chunks and build metadata for citations
+    best_score = max(r.get('final_score', 0) for r in results)
+    
+    if best_score < MIN_RELEVANCE_SCORE:
+        return {
+            "answer": "I couldn't find information directly relevant to your question in the uploaded documents. Try rephrasing your question or uploading more relevant papers.",
+            "citations": [],
+            "error_code": "LOW_RELEVANCE",
+            "best_score": best_score
+        }
+    
     chunks: list[str] = []
     metadata = {
         "sections": [],
@@ -181,22 +204,35 @@ def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None) ->
         metadata["documents"].append(doc_id)
 
     if not chunks:
-        return {"answer": "I retrieved some chunks, but they were empty.", "citations": []}
-
+        return {
+            "answer": "I found some matches but couldn't extract the text. The documents may be corrupted.",
+            "citations": [],
+            "error_code": "EMPTY_CHUNKS"
+        }
+    
     # Step 3: Generate answer with metadata for citations
     try:
         result = answer_generation(chunks, question, metadata)
         if result is None:
-            return {"answer": "Failed to generate answer.", "citations": []}
+            return {
+                "answer": "I encountered an error generating the answer. Please try again.",
+                "citations": [],
+                "error_code": "GENERATION_FAILED"
+            }
+        if best_score < LOW_RELEVANCE_WARNING:
+            result["warning"] = "The retrieved information may not be directly relevant to your question."
+            result["confidence"] = "low"
+        else:
+            result["confidence"] = "high" if best_score > 0.6 else "medium"
+        
         return result
     except Exception as e:
-        return f"Something went wrong during answer generation: {e}"
-
-    if not isinstance(answer, str) or not answer.strip():
-        return "I was unable to generate a valid answer from the retrieved context."
-
-    return answer
-
+        return {
+            "answer": "I encountered an error while generating the answer. Please try again.",
+            "citations": [],
+            "error": str(e),
+            "error_code": "GENERATION_ERROR"
+        }
 
 def print_results(question: str, results: list, show_scores: bool = True):
     """Pretty print results with scoring breakdown"""
