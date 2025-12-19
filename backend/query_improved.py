@@ -139,17 +139,8 @@ def query_with_section_boost(
     # Step 6: Return top K
     return scored_results[:top_k]
 
-def content_generator(question: str, top_k: int = 5) -> str:
-    """
-    Complete RAG pipeline: retrieval -> generation
-
-    Args:
-        question: User's question
-        top_k: Number of chunks to retrieve
-
-    Returns:
-        Generated answer with citations (string)
-    """
+# retrieval -> generation
+def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None) -> str:
     # Step 1: Retrieve relevant chunks with metadata
     try:
         results = query_with_section_boost(
@@ -157,6 +148,7 @@ def content_generator(question: str, top_k: int = 5) -> str:
             top_k=top_k,
             boost_factor=2.0,
             use_reranking=True,
+            pdf_ids=pdf_ids
         )
     except Exception as e:
         # Fallback message if retrieval itself fails
