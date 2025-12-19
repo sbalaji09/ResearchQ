@@ -164,23 +164,56 @@ def merge_tables_into_pages(pages_text: list[str], tables_by_page: dict[int, lis
     
     return merged_pages
 
+# extract text from PDF with multiple fallback strategies
 def extract_text_from_pdf_enhanced(pdf_path: Path) -> list[str]:
     pdf_type = detect_pdf_type(pdf_path)
+    pages_text = []
+    errors = []
     
-    if pdf_type == "scanned":
-        return extract_with_ocr(pdf_path)
-    else:
+    if pdf_type == "text-based":
         try:
             pages_text = extract_with_unstructured(pdf_path)
+            pages_text = validate_extracted_text(pages_text, pdf_path)
+            logger.info(f"{pdf_path.name}: Successfully extracted with Unstructured")
         except Exception as e:
-            logger.warning(f"Unstructured failed: {e}, failling back to pypdf")
-            pages_text = extract_text_from_pdf(pdf_path)
+            errors.append(f"Unstructued: {e}")
+            logger.warning(f"Unstructured failed for {pdf_path.name}: {e}")
+            pages_text = []
     
-    tables_by_page = extract_all_tables(pdf_path)
-
-    if tables_by_page:
-        logger.info(f"Found tables on {len(tables_by_page)} pages, merging...")
-        pages_text = merge_tables_into_pages(pages_text, tables_by_page)
+    if not pages_text and pdf_type == "text-based":
+        try:
+            pages_text = extract_text_from_pdf(pdf_path)
+            pages_text = validate_extracted_text(pages_text, pdf_path)
+            logger.info(f"{pdf_path.name}: Successfully extracted with pypdf")
+        except Exception as e:
+            errors.append(f"pypdf: {e}")
+            logger.warning(f"pypdf failed for {pdf_path.name}: {e}")
+            pages_text = []
+    
+    if not pages_text:
+        try:
+            logger.info(f"{pdf_path.name}: Attempting OCR extraction...")
+            pages_text = extract_with_ocr(pdf_path)
+            pages_text = validate_extracted_text(pages_text, pdf_path)
+            logger.info(f"{pdf_path.name}: Successfully extracted with OCR")
+        except Exception as e:
+            errors.append(f"OCR: {e}")
+            logger.error(f"OCR failed for {pdf_path.name}: {e}")
+    
+    if not pages_text:
+        error_details = "; ".join(errors)
+        raise PDFParsingError(
+            f"All extraction methods failed for {pdf_path.name}. Errors: {error_details}",
+            pdf_path.name
+        )
+    
+    try:
+        tables_by_page = extract_all_tables(pdf_path)
+        if tables_by_page:
+            logger.info(f"Found tables on {len(tables_by_page)} pages, merging...")
+            pages_text = merge_tables_into_pages(pages_text, tables_by_page)
+    except Exception as e:
+        logger.warning(f"Table extraction failed (non-critical): {e}")
     
     return pages_text
 
