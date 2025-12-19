@@ -16,10 +16,23 @@ def answer_generation(chunks: list[str], question: str, metadata: dict):
         # Format chunks with chunk numbers (all from same document)
         formatted_chunks = []
         sections = metadata.get('sections', [])
+        documents = metadata.get('documents', [])
+
+        citations = []
 
         for i, chunk in enumerate(chunks):
             section = sections[i] if i < len(sections) else 'Unknown'
-            formatted_chunks.append(f"[Chunk {i+1} - {section} Section]\n{chunk}")
+            doc_id = documents[i] if i < len(documents) else (documents[0] if documents else 'Unknown')
+
+            citation_id = i + 1
+            citations.append({
+                "id": citation_id,
+                "document": doc_id,
+                "section": section,
+                "text": chunk
+            })
+
+            formatted_chunks.append(f"[{citation_id}] (Document: {doc_id}, Section: {section})\n{chunk}")
 
         chunks_text = "\n\n---\n\n".join(formatted_chunks)
 
@@ -36,7 +49,13 @@ def answer_generation(chunks: list[str], question: str, metadata: dict):
             temperature=0.2,
             max_completion_tokens=800,
         )
-        return response.choices[0].message.content
+
+        answer_text = response.choices[0].message.content
+
+        return {
+            "answer": answer_text,
+            "citations": citations,
+        }
 
     except Exception as e:
         print(f"An error occurred: {e}")
