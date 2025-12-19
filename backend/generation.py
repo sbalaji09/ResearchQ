@@ -76,8 +76,13 @@ def answer_generation(chunks: list[str], question: str, metadata: dict):
         return result
 
     except Exception as e:
-        print(f"An error occurred: {e}")
-        return None
+        print(f"Generation error: {e}")
+        return {
+            "answer": "I encountered an error while generating the answer. Please try again.",
+            "citations": [],
+            "error": str(e),
+            "error_code": "GENERATION_ERROR"
+        }
 
 def format_chunks_for_prompts(chunks: list[str], metadata: dict) -> str:
     formatted = []
