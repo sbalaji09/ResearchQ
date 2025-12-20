@@ -269,3 +269,35 @@ async def list_papers():
     )
   
   return papers
+
+# lists all active conversations
+@app.get("/conversations", response_model=list[ConversationInfo])
+async def list_conversations():
+  return conversation_store.list_all()
+
+# creates a new conversation
+@app.get("/conversations/new")
+async def create_conversation(pdf_ids: list[str] = None):
+  conv = conversation_store.create(pdf_ids)
+  return {"conversation_id": conv.id}
+
+# deletes a conversation
+@app.delete("/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str):
+  if conversation_store.delete(conversation_id):
+    return {"status": "success", "message": f"Deleted conversation {conversation_id}"}
+  
+  raise HTTPException(status_code=404, detail="Conversation not found")
+
+# get the full conversation history
+@app.get("/conversations/{conversation_id}/history")
+async def get_conversation_history(conversation_id: str):
+  conv = conversation_store.get(conversation_id)
+  if not conv:
+    raise HTTPException(status_code=404, detail="Conversation not found")
+  
+  return {
+    "conversation_id": conv.id,
+    "messages": [m.to_dict() for m in conv.messages],
+    "pdf_ids": conv.pdf_ids,
+  }
