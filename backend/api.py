@@ -105,11 +105,28 @@ async def upload_pdf(file: UploadFile = File(...)):
 
   try:
     file_bytes = await file.read()
+
+    if len(file_bytes) > 50 * 1024 * 1024:
+      raise HTTPException(status_code=400, detail="File too large. Maximum size is 50MB.")
+    
+    if not file_bytes.startswith(b'%PDF'):
+      raise HTTPException(status_code=400, detail="Invalid PDF file.")
+    
     dest_path.write_bytes(file_bytes)
 
     ingest_paper(dest_path, pdf_id=safe_filename.replace(".pdf", ""), clear_existing=False)
-
+  except HTTPException:
+    raise
   except Exception as e:
+    if dest_path.exists():
+      dest_path.unlink()
+    
+    error_message = str(e)
+    if "NoTextExtractedError" in error_message or "no text" in error_message.lower():
+      raise HTTPException(
+        status_code=422,
+        detail="Could not extract text from this PDF. It may be scanned or image-only. Try a different file."
+      )
     raise HTTPException(status_code=500, detail=f"Failed to process PDF: {e}")
 
   return UploadResponse(status="success", filename=safe_filename)
@@ -161,6 +178,7 @@ def get_error_suggestion(error_code: str) -> str:
       "GENERATION_FAILED": "The AI couldn't generate a response. Try a simpler question.",
   }
   return suggestions.get(error_code, "Please try again or contact support.")
+
 # list PDFs saved in backend/test_papers
 @app.get("/papers", response_model=List[PaperInfo])
 async def list_papers():
