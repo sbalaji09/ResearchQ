@@ -147,10 +147,20 @@ async def ask_question(payload: AskRequest):
     raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
   try:
-    result = content_generator(question, pdf_ids=payload.pdf_ids)
+    conversation = conversation_store.get_or_create(
+        conversation_id=payload.conversation_id,
+        pdf_ids=payload.pdf_ids
+    )
+    
+    history = conversation.get_history(max_turns=3)
+    result = content_generator(question, pdf_ids=payload.pdf_ids, conversation_history=history)
 
     answer = result.get("answer", "")
     citations = result.get("citations", [])
+
+    conversation.add_message("user", question)
+    conversation.add_message("assistant", answer, citations)
+
     warning = result.get("warning") or result.get("hallucination_warning")
     confidence = result.get("confidence")
 
@@ -170,7 +180,8 @@ async def ask_question(payload: AskRequest):
         citations=citations,
         warning=warning,
         confidence=confidence,
-        error=error
+        error=error,
+        conversation_id=conversation.id
     )
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Failed to generate answer: {e}")
