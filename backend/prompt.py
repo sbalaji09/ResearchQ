@@ -1,6 +1,7 @@
 def generate_system_prompt(metadata: dict = None, conversation_history: list = None):
     """Generate the system prompt with instructions for the assistant."""
     doc_info = ""
+    conversation_instruction = ""
     if metadata:
         documents = metadata.get('documents', [])
         sections = metadata.get('sections', [])
