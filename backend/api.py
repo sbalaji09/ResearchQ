@@ -65,7 +65,7 @@ class ErrorDetail(BaseModel):
   error_code: str
   message: str
   suggestion: str = None
-  
+
 class AskResponse(BaseModel):
   answer: str
   citations: list[Citation] = []
@@ -126,9 +126,27 @@ async def ask_question(payload: AskRequest):
 
     answer = result.get("answer", "")
     citations = result.get("citations", [])
+    warning = result.get("warning") or result.get("hallucination_warning")
+    confidence = result.get("confidence")
 
-    if not isinstance(answer, str) or not answer.strip():
-        raise ValueError("content_generator returned an empty or invalid answer")
+    error = None
+    if "error_code" in result:
+      error = ErrorDetail(
+        error_code=result["error_code"],
+        message=result.get("error", "Unknown error"),
+        suggestion=get_error_suggestion(result["error_code"])
+      )
+    
+    if not answer.strip():
+      answer = "I was unable to generate an answer. Please try rephrasing your question"
+
+    return AskResponse(
+        answer=answer,
+        citations=citations,
+        warning=warning,
+        confidence=confidence,
+        error=error
+    )
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Failed to generate answer: {e}")
 
