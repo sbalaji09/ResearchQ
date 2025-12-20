@@ -9,6 +9,7 @@ from pinecone import Pinecone
 
 from ingest_paper import ingest_paper
 from query_improved import content_generator
+from conversation import conversation_store, Conversation
 
 from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / ".env"
@@ -54,6 +55,7 @@ TEST_PAPERS_DIR.mkdir(exist_ok=True)
 class AskRequest(BaseModel):
   question: str
   pdf_ids: list[str] = None
+  conversation_id: str = None
 
 class Citation(BaseModel):
     id: int
@@ -72,6 +74,7 @@ class AskResponse(BaseModel):
   warning: str = None
   confidence: str = None
   error: ErrorDetail = None
+  conversation_id: str = None
 
 class UploadResponse(BaseModel):
   status: str
@@ -88,6 +91,11 @@ class ClearResponse(BaseModel):
 class DeletePaperRequest(BaseModel):
   pdf_id: str
 
+class ConversationInfo(BaseModel):
+  id: str
+  message_count: int
+  created_at: str
+  last_active: str
 # ---------------- Routes ----------------
 
 @app.get("/")
