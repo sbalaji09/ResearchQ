@@ -150,8 +150,17 @@ async def ask_question(payload: AskRequest):
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Failed to generate answer: {e}")
 
-  return AskResponse(answer=answer, citations=citations)
-
+# get user-friendly suggestion for error codes
+def get_error_suggestion(error_code: str) -> str:
+  suggestions = {
+      "NO_DOCUMENTS": "Upload a PDF document first using the upload button.",
+      "LOW_RELEVANCE": "Try rephrasing your question or upload documents more relevant to your topic.",
+      "EMPTY_CHUNKS": "The documents may have parsing issues. Try re-uploading.",
+      "RETRIEVAL_ERROR": "There was a problem searching. Please try again in a moment.",
+      "GENERATION_ERROR": "There was a problem generating the answer. Please try again.",
+      "GENERATION_FAILED": "The AI couldn't generate a response. Try a simpler question.",
+  }
+  return suggestions.get(error_code, "Please try again or contact support.")
 # list PDFs saved in backend/test_papers
 @app.get("/papers", response_model=List[PaperInfo])
 async def list_papers():
