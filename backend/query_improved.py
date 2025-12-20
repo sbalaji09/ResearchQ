@@ -145,7 +145,7 @@ def query_with_section_boost(
     return scored_results[:top_k]
 
 # retrieval -> generation
-def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None) -> str:
+def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None, conversation_history: list = None) -> str:
     # Step 1: Retrieve relevant chunks with metadata
     try:
         results = query_with_section_boost(
@@ -212,7 +212,7 @@ def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None) ->
     
     # Step 3: Generate answer with metadata for citations
     try:
-        result = answer_generation(chunks, question, metadata)
+        result = answer_generation(chunks, question, metadata,conversation_history=conversation_history)
         if result is None:
             return {
                 "answer": "I encountered an error generating the answer. Please try again.",
