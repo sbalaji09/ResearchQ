@@ -12,7 +12,7 @@ load_dotenv(env_path)
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 
-def answer_generation(chunks: list[str], question: str, metadata: dict):
+def answer_generation(chunks: list[str], question: str, metadata: dict, conversation_history: list = None) -> dict:
     try:
         # Format chunks with chunk numbers (all from same document)
         formatted_chunks = []
@@ -38,9 +38,14 @@ def answer_generation(chunks: list[str], question: str, metadata: dict):
         chunks_text = "\n\n---\n\n".join(formatted_chunks)
 
         # Generate prompts
-        system_prompt = generate_system_prompt(metadata)
-        user_prompt = generate_user_prompt(chunks_text, question)
+        system_prompt = generate_system_prompt(metadata, conversation_history)
+        user_prompt = generate_user_prompt(chunks_text, question, conversation_history)
 
+        messages = [{"role": "system", "content": system_prompt}]
+
+        # Add current user message
+        messages.append({"role": "user", "content": user_prompt})
+        
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
