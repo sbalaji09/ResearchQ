@@ -10,7 +10,7 @@ from pdf2image import convert_from_path
 import pytesseract
 from unstructured.partition.pdf import partition_pdf
 
-from backend.exceptions import *
+from exceptions import *
 from parse_pdf import extract_text_from_pdf
 
 # Configure logger for this module

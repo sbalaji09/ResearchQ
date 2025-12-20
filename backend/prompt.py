@@ -7,16 +7,15 @@ def generate_system_prompt(metadata: dict = None, conversation_history: list = N
         if documents:
             doc_info = f"Documents: {', '.join(set(documents))}\nSections referenced: {', '.join(set(sections))}"
 
-        conversation_instruction = ""
-        if conversation_history and len(conversation_history) > 0:
-            conversation_instruction = """
-            Conversation context:
-            - This is a follow-up question in an ongoing conversation.
-            - Consider the previous questions and answers when responding.
-            - If the user refers to something mentioned before (e.g., "it", "they", "that method"), 
-            use the conversation context to understand what they mean.
-            - You can reference your previous answers if relevant.
-            """
+    if conversation_history and len(conversation_history) > 0:
+        conversation_instruction = """
+        Conversation context:
+        - This is a follow-up question in an ongoing conversation.
+        - Consider the previous questions and answers when responding.
+        - If the user refers to something mentioned before (e.g., "it", "they", "that method"), 
+        use the conversation context to understand what they mean.
+        - You can reference your previous answers if relevant.
+        """
 
     prompt = f"""You are a careful research assistant answering questions about an academic paper.
 
