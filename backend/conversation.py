@@ -58,4 +58,85 @@ class Conversation:
         
         return "\n".join(summary_parts)
     
+class ConversationStore:
+    def __init__(self, persist_path: Path = None):
+        self._conversations: dict[str, Conversation] = {}
+        self._persist_path = persist_path
+
+        if persist_path and persist_path.exists():
+            self._load()
+    
+    # create a new conversation
+    def create(self, pdf_ids: list[str] = None) -> Conversation:
+        conv_id = str(uuid.uuid4())[:8]
+        conversation = Conversation(
+            id=conv_id,
+            pdf_ids=pdf_ids or []
+        )
+        self._conversations[conv_id] = conversation
+        self._save()
+        return conversation
+    
+    # get a conversation by ID
+    def get(self, conversation_id: str) -> Optional[Conversation]:
+        return self._conversations.get(conversation_id)
+    
+    # get existing conversations or create new one
+    def get_or_create(self, conversation_id: str = None, pdf_ids: list[str] = None) -> Conversation:
+        if conversation_id and conversation_id in self._conversations:
+            conv = self._conversations[conversation_id]
+            if pdf_ids:
+                conv.pdf_ids = pdf_ids
+            return conv
+        return self.create(pdf_ids)
+    
+    # delete a conversation
+    def delete(self, conversation_id: str) -> bool:
+        if conversation_id in self._conversations:
+            del self._conversations[conversation_id]
+            self._save()
+            return True
+        return False
+    
+    # list all conversations
+    def list_all(self) -> list[dict]:
+        return [
+            {
+                "id": conv.id,
+                "message_count": len(conv.messages),
+                "created_at": conv.created_at.isoformat(),
+                "last_active": conv.last_active.isoformat(),
+            }
+            for conv in self._conversations.values()
+        ]
+    
+    # remove conversations older than max_age_hours
+    def cleanup_old(self, max_age_hours: int = 24):
+        now = datetime.now()
+        to_delete = []
+        for conv_id, conv in self._conversations.items():
+            age = (now - conv.last_active).total_seconds() / 3600
+            if age > max_age_hours:
+                to_delete.append(conv_id)
+        
+        for conv_id in to_delete:
+            del self._conversations[conv_id]
+        
+        if to_delete:
+            self._save()
+        
+        return len(to_delete)
+    
+    # persist conversations to file
+    def _save(self):
+        if not self._persist_path:
+            return
+        pass
+    
+    # load conversations from file
+    def _load(self):
+        if not self._persist_path:
+            return
+        pass
+    
     
