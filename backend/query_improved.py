@@ -12,6 +12,7 @@ from retrieval import (
 )
 
 from exceptions import NoRelevantChunksError, LowRelevanceError, RetrievalError, GenerationError
+from cache import embedding_cache, detect_query_complexity, get_model_for_complexity
 
 _cross_encoder = None
 
@@ -58,7 +59,7 @@ def query_with_section_boost(
             model="text-embedding-3-small",
             input=query_variant
         )
-        query_embedding = response.data[0].embedding
+        query_embedding = get_embedding_cached(query_variant)
 
         # Get candidates from Pinecone
         index_name = os.environ.get("PINECONE_INDEX_NAME")
@@ -289,6 +290,17 @@ def print_results(question: str, results: list, show_scores: bool = True):
         text = result.get('text', '')
         preview = text[:400] + "..." if len(text) > 400 else text
         print(preview)
+
+# get embedding with caching
+def get_embedding_cached(text: str) -> list:
+    def compute():
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input = text.strip()
+        )
+        return response.data[0].embedding
+    
+    return embedding_cache.get_or_compute(text, compute)
 
 
 def main():
