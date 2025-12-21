@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pinecone import Pinecone
@@ -10,6 +10,7 @@ from pinecone import Pinecone
 from ingest_paper import ingest_paper
 from query_improved import content_generator
 from conversation import conversation_store, Conversation
+from rate_limit import rate_limiter
 
 from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / ".env"
@@ -254,6 +255,30 @@ async def list_papers():
     )
   
   return papers
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    # we only rate limit the /ask endpoint
+    if request.url.path == "/ask":
+        client_id = request.client.host if request.client else "unknown"
+        
+        check = rate_limiter.check_rate_limit(client_id)
+        
+        if not check["allowed"]:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "detail": check["reason"],
+                    "retry_after": check["retry_after"],
+                },
+                headers={"Retry-After": str(check["retry_after"])}
+            )
+        
+        rate_limiter.record_request(client_id)
+    
+    response = await call_next(request)
+    return response
 
 # lists all active conversations
 @app.get("/conversations", response_model=list[ConversationInfo])
