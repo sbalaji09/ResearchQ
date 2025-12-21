@@ -121,4 +121,19 @@ def detect_query_complexity(query: str) -> str:
     
     return "simple"
 
+# get model configuration based on complexity
+def get_model_for_complexity(complexity: str) -> dict:
+    if complexity == "simple":
+        return {
+            "model": "gpt-4o-mini",
+            "max_tokens": 500,
+            "temperature": 0.1,
+        }
+    else:
+        return {
+            "model": "gpt-4o-mini",  # Can upgrade to gpt-4o for complex
+            "max_tokens": 800,
+            "temperature": 0.2,
+        }
+
 embedding_cache = EmbeddingCache(max_size=1000, ttl_seconds=3600)
