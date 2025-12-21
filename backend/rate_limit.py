@@ -85,3 +85,5 @@ class RateLimiter:
             "minute_remaining": self.config.requests_per_minute - len(self._minute_buckets[client_id]),
             "hour_remaining": self.config.requests_per_hour - len(self._hour_buckets[client_id]),
         }
+
+rate_limiter = RateLimiter()
