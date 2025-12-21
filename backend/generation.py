@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from prompt import generate_system_prompt, generate_user_prompt
+from cache import detect_query_complexity, get_model_for_complexity
 
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
@@ -46,14 +47,17 @@ def answer_generation(chunks: list[str], question: str, metadata: dict, conversa
         # Add current user message
         messages.append({"role": "user", "content": user_prompt})
         
+        complexity = detect_query_complexity(question)
+        model_config = get_model_for_complexity(complexity)
+
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model_config["model"],
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.2,
-            max_completion_tokens=800,
+            temperature=model_config["temperature"],
+            max_completion_tokens=model_config["max_tokens"],
         )
 
         answer_text = response.choices[0].message.content
