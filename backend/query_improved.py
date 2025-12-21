@@ -1,3 +1,4 @@
+import re
 from openai import OpenAI
 import os
 from pinecone import Pinecone
@@ -315,7 +316,23 @@ def main():
         results = query_with_section_boost(question, top_k=5, boost_factor=2.0, use_reranking=True)
         print_results(question, results, show_scores=True)
         print("\n")
-
-
+        
+# boost for exact phrase match
+def compute_exact_match_boost(query: str, text: str) -> float:
+    query_lower = query.lower()
+    text_lower = text.lower()
+    
+    quoted = re.findall(r'"([^"]+)"', query)
+    for phrase in quoted:
+        if phrase.lower() in text_lower:
+            return 1.5  # 50% boost for exact match
+    
+    query_numbers = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', query))
+    text_numbers = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', text))
+    
+    if query_numbers and query_numbers & text_numbers:
+        return 1.2
+    
+    return 1.0
 if __name__ == "__main__":
     main()
