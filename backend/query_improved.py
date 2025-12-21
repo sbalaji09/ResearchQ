@@ -12,6 +12,16 @@ from retrieval import (
 
 from exceptions import NoRelevantChunksError, LowRelevanceError, RetrievalError, GenerationError
 
+_cross_encoder = None
+
+def get_cross_encoder():
+    global _cross_encoder
+    if _cross_encoder is None:
+        from sentence_transformers import CrossEncoder
+        _cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+
+    return _cross_encoder
+
 MIN_RELEVANCE_SCORE = 0.25  # Below this, results are likely irrelevant
 LOW_RELEVANCE_WARNING = 0.4  # Below this, warn user about low confidence
 
@@ -108,7 +118,7 @@ def query_with_section_boost(
             from sentence_transformers import CrossEncoder
 
             # Use a lightweight cross-encoder
-            model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+            model = get_cross_encoder()
 
             # Take top candidates for reranking (expensive operation)
             candidates_to_rerank = scored_results[:min(20, len(scored_results))]
