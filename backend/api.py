@@ -11,6 +11,7 @@ from ingest_paper import ingest_paper
 from query_improved import content_generator
 from conversation import conversation_store, Conversation
 from rate_limit import rate_limiter
+from cache import embedding_cache, rate_limiter
 
 from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / ".env"
@@ -311,3 +312,17 @@ async def get_conversation_history(conversation_id: str):
     "messages": [m.to_dict() for m in conv.messages],
     "pdf_ids": conv.pdf_ids,
   }
+
+@app.get("/stats/cache")
+async def get_cache_stats():
+  return embedding_cache.stats()
+
+@app.get("/stats/rate-limit")
+async def get_rate_limit_stats(request: Request):
+  client_id = request.client.host if request.client else "unknown"
+  return rate_limiter.get_remaining(client_id)
+
+@app.post("/cache/clear")
+async def clear_cache():
+  embedding_cache.clear()
+  return {"status": "success", "message": "Cache cleared"}
