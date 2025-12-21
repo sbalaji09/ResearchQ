@@ -1,4 +1,5 @@
 import hashlib
+import re
 import time
 from typing import Optional, List
 from collections import OrderedDict
@@ -77,5 +78,47 @@ class EmbeddingCache:
             "misses": self._stats["misses"],
             "hit_rate": f"{hit_rate: .1%}"
         }
+
+# classify query complexity to route to appropriate model
+def detect_query_complexity(query: str) -> str:
+    query_lower = query.lower().strip()
+    words = query_lower.split()
+    word_count = len(words)
+    
+    simple_patterns = [
+        r'^what is\b',
+        r'^who is\b',
+        r'^when was\b',
+        r'^where is\b',
+        r'^how many\b',
+        r'^yes or no\b',
+        r'^true or false\b',
+    ]
+    
+    for pattern in simple_patterns:
+        if re.match(pattern, query_lower):
+            if word_count < 10:
+                return "simple"
+    
+    complex_indicators = [
+        'compare', 'contrast', 'analyze', 'explain why',
+        'relationship between', 'implications', 'evaluate',
+        'synthesize', 'critically', 'in-depth',
+        'step by step', 'comprehensive', 'detailed',
+    ]
+    
+    for indicator in complex_indicators:
+        if indicator in query_lower:
+            return "complex"
+    
+    # multi part questions are complex
+    if query_lower.count('?') > 1:
+        return "complex"
+    
+    # long questions are complex
+    if word_count > 25:
+        return "complex"
+    
+    return "simple"
 
 embedding_cache = EmbeddingCache(max_size=1000, ttl_seconds=3600)
