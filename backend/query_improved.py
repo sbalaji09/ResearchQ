@@ -25,6 +25,13 @@ def get_cross_encoder():
 MIN_RELEVANCE_SCORE = 0.25  # Below this, results are likely irrelevant
 LOW_RELEVANCE_WARNING = 0.4  # Below this, warn user about low confidence
 
+SEMANTIC_WEIGHT = 0.6
+KEYWORD_WEIGHT = 0.4
+SECTION_BOOST = 2.0
+RERANK_WEIGHT = 0.7
+HYBRID_WEIGHT = 0.3
+RERANK_CANDIDATES = 20
+
 # Load environment
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
