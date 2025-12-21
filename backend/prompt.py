@@ -2,11 +2,25 @@ def generate_system_prompt(metadata: dict = None, conversation_history: list = N
     """Generate the system prompt with instructions for the assistant."""
     doc_info = ""
     conversation_instruction = ""
+    cross_doc_instruction = ""
+
     if metadata:
         documents = metadata.get('documents', [])
         sections = metadata.get('sections', [])
+        unique_docs = list(set(documents))
+
         if documents:
             doc_info = f"Documents: {', '.join(set(documents))}\nSections referenced: {', '.join(set(sections))}"
+
+        if len(unique_docs) > 1:
+            cross_doc_instruction = """
+Cross-document analysis:
+- You are analyzing multiple research papers.
+- When comparing across documents, clearly identify which document each piece of information comes from.
+- Use format: "In Document A... while in Document B..." for comparisons.
+- Note similarities and differences between the papers when relevant.
+- Always specify the document name when citing: "According to [Document Name] [1]..."
+"""
 
     if conversation_history and len(conversation_history) > 0:
         conversation_instruction = """
@@ -22,6 +36,7 @@ def generate_system_prompt(metadata: dict = None, conversation_history: list = N
 
 Document Information:
 {doc_info}
+{cross_doc_instruction}
 {conversation_instruction}
 Your task:
 - You will receive text chunks from a research paper and a specific question.
