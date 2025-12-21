@@ -547,7 +547,27 @@ def evaluate_retrieval(
     
     return results
 
+# detect if question is asking to compare across documents
+def is_cross_document_query(question: str) -> bool:
+    cross_doc_patterns = [
+        r'\bcompare\b',
+        r'\bcontrast\b',
+        r'\bdifference[s]?\b',
+        r'\bsimilarit(y|ies)\b',
+        r'\bboth (paper|stud|document)',
+        r'\beach (paper|stud|document)',
+        r'\ball (paper|stud|document)',
+        r'\bacross\b',
+        r'\bbetween the\b',
+        r'\bhow do(es)? .* differ\b',
+        r'\bwhat do .* have in common\b',
+    ]
 
+    question_lower = question.lower()
+    for pattern in cross_doc_patterns:
+        if re.search(pattern, question_lower):
+            return True
+    return False
 # =============================================================================
 # EXAMPLE USAGE
 # =============================================================================
