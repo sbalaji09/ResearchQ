@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -66,15 +66,15 @@ class Citation(BaseModel):
 class ErrorDetail(BaseModel):
   error_code: str
   message: str
-  suggestion: str = None
+  suggestion: Optional[str] = None
 
 class AskResponse(BaseModel):
   answer: str
   citations: list[Citation] = []
-  warning: str = None
-  confidence: str = None
-  error: ErrorDetail = None
-  conversation_id: str = None
+  warning: Optional[str] = None
+  confidence: Optional[str] = None
+  error: Optional[ErrorDetail] = None
+  conversation_id: Optional[str] = None
 
 class UploadResponse(BaseModel):
   status: str
@@ -82,6 +82,7 @@ class UploadResponse(BaseModel):
 
 class PaperInfo(BaseModel):
   filename: str
+  pdf_id: str
   path: str
 
 class ClearResponse(BaseModel):
@@ -197,22 +198,6 @@ def get_error_suggestion(error_code: str) -> str:
       "GENERATION_FAILED": "The AI couldn't generate a response. Try a simpler question.",
   }
   return suggestions.get(error_code, "Please try again or contact support.")
-
-# list PDFs saved in backend/test_papers
-@app.get("/papers", response_model=List[PaperInfo])
-async def list_papers():
-  papers: List[PaperInfo] = []
-
-  for pdf_path in TEST_PAPERS_DIR.glob("*.pdf"):
-    papers.append(
-      PaperInfo(
-        filename=pdf_path.name,
-        path=str(pdf_path.relative_to(BASE_DIR)),
-      )
-    )
-
-  return papers
-
 
 # Clear all vectors from Pinecone and delete local PDF files
 @app.post("/clear", response_model=ClearResponse)
