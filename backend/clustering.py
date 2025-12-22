@@ -466,3 +466,64 @@ def build_similarity_matrix(pdf_ids: List[str]) -> Tuple[np.ndarray, List[str]]:
     sim_matrix = cosine_similarity(X)
     
     return sim_matrix, ordered_ids
+
+# complete analysis of a paper collection
+def analyze_paper_collection(
+    pdf_ids: Optional[List[str]] = None,
+    clustering_method: str = "hierarchical",
+    n_clusters: Optional[int] = None,
+    extract_topics: bool = True,
+    use_llm_summaries: bool = False,
+) -> Dict[str, Any]:
+    if pdf_ids is None:
+        pdf_ids = get_all_pdf_ids()
+    
+    if len(pdf_ids) < 2:
+        return {"error": "Need at least 2 papers for clustering"}
+    
+    outliers = []
+    
+    if clustering_method == "kmeans":
+        if n_clusters is None:
+            n_clusters = max(2, int(np.sqrt(len(pdf_ids) / 2)))
+        clusters = cluster_papers_kmeans(pdf_ids, n_clusters)
+    elif clustering_method == "hierarchical":
+        clusters = cluster_papers_hierarchical(
+            pdf_ids, 
+            n_clusters=n_clusters,
+            distance_threshold=0.5 if n_clusters is None else None
+        )
+    elif clustering_method == "dbscan":
+        clusters, outliers = cluster_papers_dbscan(pdf_ids)
+    else:
+        raise ValueError(f"Unknown clustering method: {clustering_method}")
+    
+    # extract topics for each cluster
+    if extract_topics:
+        for cluster in clusters:
+            cluster.topics = extract_cluster_topics_tfidf(cluster)
+            if use_llm_summaries:
+                cluster.summary = extract_cluster_topics_llm(cluster)
+    
+    # build result
+    result = {
+        "method": clustering_method,
+        "total_papers": len(pdf_ids),
+        "num_clusters": len(clusters),
+        "clusters": [
+            {
+                "id": c.cluster_id,
+                "papers": c.pdf_ids,
+                "size": len(c.pdf_ids),
+                "topics": c.topics,
+                "summary": c.summary,
+            }
+            for c in clusters
+        ],
+    }
+    
+    if outliers:
+        result["outliers"] = outliers
+        result["num_outliers"] = len(outliers)
+    
+    return result
