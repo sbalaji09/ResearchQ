@@ -742,6 +742,8 @@ def chunk_document(
     chunk_size: int = 400,           # Optimal balance: context + focus
     overlap: int = 3,                # More overlap for better continuity
     add_synthetic: bool = True,
+    domain: str = None,
+    auto_detect_domain: bool = True
 ) -> List[Chunk]:
     """
     Main entry point for chunking a document
@@ -757,6 +759,19 @@ def chunk_document(
     Returns:
         List of Chunk objects with text and metadata
     """
+    if domain:
+        domain_config = get_domain_config(domain)
+    elif auto_detect_domain:
+        detected = detect_domain(text)
+        domain_config = get_domain_config(detected)
+        print(f"Auto-detected domain: {detected}")
+    else:
+        domain_config = get_domain_config("general")
+    
+    # Use domain-specific chunk size if not specified
+    if chunk_size is None:
+        chunk_size = domain_config.max_chunk_size
+    
     text = clean_text(text)
     
     if strategy == "hierarchical":
@@ -764,18 +779,22 @@ def chunk_document(
             text, 
             document_id=document_id,
             small_chunk_size=chunk_size,
+            domain_config=domain_config,
         )
     elif strategy == "paragraph":
         chunks = chunk_by_paragraphs(
             text,
             document_id=document_id,
             max_chunk_size=chunk_size,
+            domain_config=domain_config,
         )
     elif strategy == "recursive":
         chunks = chunk_recursive(
             text,
             document_id=document_id,
             max_chunk_size=chunk_size,
+            min_chunk_size=domain_config.min_chunk_size,
+            domain_config=domain_config,
         )
     else:  # sentence (your original approach, improved)
         sections = split_into_sections(text)
@@ -819,7 +838,10 @@ def chunk_document(
                 ))
     
     if add_synthetic:
-        chunks = create_question_focused_chunks(chunks)
+        chunks = create_question_focused_chunks(chunks, domain_config)
+
+    for chunk in chunks:
+        chunk.metadata['domain'] = domain_config.name
     
     return chunks
 
