@@ -138,3 +138,43 @@ def get_paper_embedding(pdf_id: str) -> Optional[PaperEmbedding]:
             "sections": list(set(m.metadata.get("section", "unknown") for m in results.matches))
         }
     )
+
+# get embeddings for multiple papers
+def get_all_paper_embeddings(pdf_ids: Optional[List[str]] = None) -> List[PaperEmbedding]:
+    if pdf_ids is None:
+        # get all unique pdf_ids from the index
+        pdf_ids = get_all_pdf_ids()
+    
+    embeddings = []
+    for pdf_id in pdf_ids:
+        paper_emb = get_paper_embedding(pdf_id)
+        if paper_emb is not None:
+            embeddings.append(paper_emb)
+        else:
+            print(f"Warning: Could not get embedding for {pdf_id}")
+    
+    return embeddings
+
+# get all unique pdf_ids from the Pinecone index
+def get_all_pdf_ids() -> List[str]:
+    index_name = os.environ.get("PINECONE_INDEX_NAME")
+    index = pc.Index(index_name)
+    
+    stats = index.describe_index_stats()
+    dimension = stats.dimension
+
+    dummy_vector = [0.0] * dimension
+    
+    results = index.query(
+        vector=dummy_vector,
+        top_k=10000,
+        include_metadata=True,
+    )
+    
+    # extract unique pdf_ids
+    pdf_ids = set()
+    for match in results.matches:
+        if match.metadata and "pdf_id" in match.metadata:
+            pdf_ids.add(match.metadata["pdf_id"])
+    
+    return list(pdf_ids)
