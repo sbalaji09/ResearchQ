@@ -178,3 +178,41 @@ def get_all_pdf_ids() -> List[str]:
             pdf_ids.add(match.metadata["pdf_id"])
     
     return list(pdf_ids)
+
+# cluster papers using K-Means algorithm
+def cluster_papers_kmeans(
+    pdf_ids: List[str],
+    n_clusters: int,
+) -> List[ClusterResult]:
+    paper_embeddings = get_all_paper_embeddings(pdf_ids)
+    
+    if len(paper_embeddings) < n_clusters:
+        raise ValueError(f"Cannot create {n_clusters} clusters from {len(paper_embeddings)} papers")
+    
+    # build embedding matrix
+    X = np.array([pe.embedding for pe in paper_embeddings])
+    id_map = {i: pe.pdf_id for i, pe in enumerate(paper_embeddings)}
+    
+    # run k-means
+    kmeans = KMeans(
+        n_clusters=n_clusters,
+        random_state=42,
+        n_init=10,
+    )
+    labels = kmeans.fit_predict(X)
+    
+    # group papers by cluster
+    clusters = defaultdict(list)
+    for idx, label in enumerate(labels):
+        clusters[label].append(id_map[idx])
+    
+    # build results
+    results = []
+    for cluster_id, members in clusters.items():
+        results.append(ClusterResult(
+            cluster_id=cluster_id,
+            pdf_ids=members,
+            centroid=kmeans.cluster_centers_[cluster_id],
+        ))
+    
+    return results
