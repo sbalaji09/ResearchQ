@@ -216,3 +216,90 @@ def cluster_papers_kmeans(
         ))
     
     return results
+
+# cluster papers using hierarchial clustering
+def cluster_papers_hierarchical(
+    pdf_ids: List[str],
+    n_clusters: Optional[int] = None,
+    distance_threshold: Optional[float] = 0.5,
+) -> List[ClusterResult]:
+    paper_embeddings = get_all_paper_embeddings(pdf_ids)
+    
+    if len(paper_embeddings) < 2:
+        raise ValueError("Need at least 2 papers to cluster")
+    
+    X = np.array([pe.embedding for pe in paper_embeddings])
+    id_map = {i: pe.pdf_id for i, pe in enumerate(paper_embeddings)}
+    
+    # configure clustering
+    clustering = AgglomerativeClustering(
+        n_clusters=n_clusters,
+        distance_threshold=distance_threshold if n_clusters is None else None,
+        metric="cosine",
+        linkage="average",  # average linkage works well with cosine distance
+    )
+    labels = clustering.fit_predict(X)
+    
+    # group papers by clustering
+    clusters = defaultdict(list)
+    for idx, label in enumerate(labels):
+        clusters[label].append(id_map[idx])
+    
+    results = []
+    for cluster_id, members in clusters.items():
+        member_indices = [i for i, pid in id_map.items() if pid in members]
+        centroid = X[member_indices].mean(axis=0)
+        centroid = centroid / np.linalg.norm(centroid)
+        
+        results.append(ClusterResult(
+            cluster_id=cluster_id,
+            pdf_ids=members,
+            centroid=centroid,
+        ))
+    
+    return results
+
+# cluster papers using DBSCAN (Density-Based Spatial Clustering)
+def cluster_papers_dbscan(
+    pdf_ids: List[str],
+    eps: float = 0.3,
+    min_samples: int = 2,
+) -> Tuple[List[ClusterResult], List[str]]:
+    paper_embeddings = get_all_paper_embeddings(pdf_ids)
+    
+    if len(paper_embeddings) < min_samples:
+        raise ValueError(f"Need at least {min_samples} papers for DBSCAN")
+    
+    X = np.array([pe.embedding for pe in paper_embeddings])
+    id_map = {i: pe.pdf_id for i, pe in enumerate(paper_embeddings)}
+    
+    clustering = DBSCAN(
+        eps=eps,
+        min_samples=min_samples,
+        metric="cosine",
+    )
+    labels = clustering.fit_predict(X)
+    
+    clusters = defaultdict(list)
+    outliers = []
+    
+    for idx, label in enumerate(labels):
+        pdf_id = id_map[idx]
+        if label == -1:
+            outliers.append(pdf_id)
+        else:
+            clusters[label].append(pdf_id)
+    
+    results = []
+    for cluster_id, members in clusters.items():
+        member_indices = [i for i, pid in id_map.items() if pid in members]
+        centroid = X[member_indices].mean(axis=0)
+        centroid = centroid / np.linalg.norm(centroid)
+        
+        results.append(ClusterResult(
+            cluster_id=cluster_id,
+            pdf_ids=members,
+            centroid=centroid,
+        ))
+    
+    return results, outliers
