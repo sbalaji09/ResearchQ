@@ -198,3 +198,91 @@ def extract_methodology_summary(pdf_id: str) -> Dict[str, Any]:
         "summary": extract_field(result_text, "SUMMARY") or result_text,
         "raw_text_length": len(methodology_text),
     }
+
+# compare 2-5 papers to find similarities and differences
+def compare_papers(pdf_ids: List[str]) -> ComparisonResult:
+    if len(pdf_ids) < 2:
+        raise ValueError("Need at least 2 papers to compare")
+    if len(pdf_ids) > 5:
+        raise ValueError("Maximum 5 papers can be compared at once")
+    
+    # get content from each paper
+    paper_contents = {}
+    for pdf_id in pdf_ids:
+        abstract = get_abstract(pdf_id)
+        methodology = get_methodology(pdf_id)
+        conclusion = get_conclusion(pdf_id)
+        
+        # combine key sections
+        content = f"""
+            ABSTRACT:
+            {abstract[:1500] if abstract else "Not found"}
+
+            METHODOLOGY:
+            {methodology[:1500] if methodology else "Not found"}
+
+            CONCLUSION:
+            {conclusion[:1500] if conclusion else "Not found"}
+            """
+        paper_contents[pdf_id] = content
+    
+    # comparison prompt
+    papers_text = ""
+    for pdf_id, content in paper_contents.items():
+        papers_text += f"\n{'='*40}\nPAPER: {pdf_id}\n{'='*40}\n{content}\n"
+    
+    prompt = f"""Compare these {len(pdf_ids)} research papers and identify:
+
+        {papers_text}
+
+        Provide your analysis in this exact format:
+
+        SIMILARITIES:
+        - [List 3-5 similarities across the papers]
+
+        DIFFERENCES:
+        - [List 3-5 key differences between the papers]
+
+        KEY_THEMES:
+        - [List 3-5 themes that emerge from these papers together]
+
+        METHODOLOGY_COMPARISON:
+        [1-2 paragraphs comparing the methodological approaches]
+
+        Be specific and cite which papers you're referring to when noting differences."""
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=1000,
+        temperature=0.4,
+    )
+    
+    result_text = response.choices[0].message.content.strip()
+    
+    # parse the response
+    def extract_list(text: str, section_name: str) -> List[str]:
+        import re
+        pattern = rf"{section_name}:\s*\n((?:[-•*]\s*.+\n?)+)"
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            items = re.findall(r"[-•*]\s*(.+)", match.group(1))
+            return [item.strip() for item in items if item.strip()]
+        return []
+    
+    def extract_paragraph(text: str, section_name: str) -> str:
+        import re
+        pattern = rf"{section_name}:\s*\n(.+?)(?=\n[A-Z_]+:|$)"
+        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        return ""
+    
+    return ComparisonResult(
+        pdf_ids=pdf_ids,
+        similarities=extract_list(result_text, "SIMILARITIES"),
+        differences=extract_list(result_text, "DIFFERENCES"),
+        key_themes=extract_list(result_text, "KEY_THEMES"),
+        methodology_comparison=extract_paragraph(result_text, "METHODOLOGY_COMPARISON"),
+        raw_context={"paper_contents": paper_contents}
+    )
