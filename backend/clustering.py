@@ -357,3 +357,59 @@ def extract_cluster_topics_tfidf(
     topics = [feature_names[i] for i in top_indices]
     
     return topics
+
+# use GPT to generate a summary of what theme connects papers in a cluster
+def extract_cluster_topics_llm(
+    cluster: ClusterResult,
+    max_papers: int = 5,
+) -> str:
+    index_name = os.environ.get("PINECONE_INDEX_NAME")
+    index = pc.Index(index_name)
+    
+    # collect abstracts / intros from papers
+    paper_summaries = []
+    
+    for pdf_id in cluster.pdf_ids[:max_papers]:
+        stats = index.describe_index_stats()
+        dummy_vector = [0.0] * stats.dimension
+        
+        results = index.query(
+            vector=dummy_vector,
+            top_k=100,
+            include_metadata=True,
+            filter={"pdf_id": {"$eq": pdf_id}}
+        )
+        
+        summary_text = ""
+        for match in results.matches:
+            section = match.metadata.get("section", "").lower()
+            if "abstract" in section or "introduction" in section:
+                summary_text = match.metadata.get("text", "")[:500]
+                break
+        
+        if summary_text:
+            paper_summaries.append(f"Paper '{pdf_id}': {summary_text}")
+    
+    if not paper_summaries:
+        return "Unable to determine cluster theme - no text found."
+    
+    prompt = f"""Analyze these paper excerpts and identify the common theme or topic that connects them.
+
+        Papers in this cluster:
+        {chr(10).join(paper_summaries)}
+
+        Provide a concise 1-2 sentence summary of the unifying theme. Focus on:
+        - The main research area/domain
+        - Common methodologies or approaches
+        - Shared problems being addressed
+
+        Theme:"""
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",  # Use a cheaper model for this task
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=150,
+        temperature=0.3,
+    )
+    
+    return response.choices[0].message.content.strip()
