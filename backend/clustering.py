@@ -68,3 +68,73 @@ def get_section_weight(section_name: str) -> float:
             return weight
     
     return 1.0
+
+# generate a single embedding vector representing an entire paper
+def get_paper_embedding(pdf_id: str) -> Optional[PaperEmbedding]:
+    index_name = os.environ.get("PINECONE_INDEX_NAME")
+    index = pc.Index(index_name)
+    
+    # get the dimension of the index
+    stats = index.describe_index_stats()
+    dimension = stats.dimension
+    
+    # dummy query vector
+    dummy_vector = [0.0] * dimension
+    
+    # get all chunks for this paper
+    results = index.query(
+        vector=dummy_vector,
+        top_k=10000,  # Get all chunks (adjust if you have more)
+        include_values=True,
+        include_metadata=True,
+        filter={"pdf_id": {"$eq": pdf_id}}
+    )
+    
+    if not results.matches:
+        print(f"No chunks found for pdf_id: {pdf_id}")
+        return None
+    
+    # collect embeddings with weights
+    embeddings = []
+    weights = []
+    total_tokens = 0
+    
+    for match in results.matches:
+        embedding = np.array(match.values)
+        metadata = match.metadata or {}
+        
+        # get section weight
+        section = metadata.get("section", "unknown")
+        section_weight = get_section_weight(section)
+        
+        # get token count weight
+        token_count = metadata.get("token_count", 200)
+        token_weight = min(token_count / 200, 2.0)  # Cap at 2x
+        
+        # combine weights
+        combined_weight = section_weight * token_weight
+        
+        embeddings.append(embedding)
+        weights.append(combined_weight)
+        total_tokens += token_count
+    
+    # compute weighted average
+    embeddings_array = np.array(embeddings)
+    weights_array = np.array(weights)
+    
+    # normalize weights
+    weights_normalized = weights_array / weights_array.sum()
+    
+    paper_embedding = np.average(embeddings_array, axis=0, weights=weights_normalized)
+    
+    paper_embedding = paper_embedding / np.linalg.norm(paper_embedding)
+    
+    return PaperEmbedding(
+        pdf_id=pdf_id,
+        embedding=paper_embedding,
+        chunk_count=len(embeddings),
+        metadata={
+            "total_tokens": total_tokens,
+            "sections": list(set(m.metadata.get("section", "unknown") for m in results.matches))
+        }
+    )
