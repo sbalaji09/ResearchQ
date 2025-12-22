@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { UploadPage } from './components/UploadPage';
 import { PapersView } from './components/PapersView';
+import { LitReviewView } from './components/LitReviewView';
 
-type View = 'landing' | 'upload' | 'papers';
+type View = 'landing' | 'upload' | 'papers' | 'litreview';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('landing');
@@ -33,14 +34,15 @@ export default function App() {
   return (
     <div className="min-h-screen bg-background">
       {currentView === 'landing' && (
-        <LandingPage 
+        <LandingPage
           onUpload={() => setCurrentView('upload')}
           onViewPapers={() => setCurrentView('papers')}
+          onLitReview={() => setCurrentView('litreview')}
           hasPapers={uploadedPapers.length > 0}
         />
       )}
       {currentView === 'upload' && (
-        <UploadPage 
+        <UploadPage
           onUpload={handleUpload}
           onBack={() => setCurrentView('landing')}
         />
@@ -51,6 +53,12 @@ export default function App() {
           onBack={() => setCurrentView('landing')}
           onUploadMore={() => setCurrentView('upload')}
           onClearPapers={handleClearPapers}
+          onLitReview={() => setCurrentView('litreview')}
+        />
+      )}
+      {currentView === 'litreview' && (
+        <LitReviewView
+          onBack={() => setCurrentView('papers')}
         />
       )}
     </div>

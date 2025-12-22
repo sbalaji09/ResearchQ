@@ -1,12 +1,13 @@
-import { Upload, FileText, MessageSquare, Zap, ArrowRight, Sparkles, Lock } from 'lucide-react';
+import { Upload, FileText, MessageSquare, Zap, ArrowRight, Sparkles, Lock, BookOpen } from 'lucide-react';
 
 interface LandingPageProps {
   onUpload: () => void;
   onViewPapers: () => void;
+  onLitReview: () => void;
   hasPapers: boolean;
 }
 
-export function LandingPage({ onUpload, onViewPapers, hasPapers }: LandingPageProps) {
+export function LandingPage({ onUpload, onViewPapers, onLitReview, hasPapers }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       {/* Header */}
@@ -22,13 +23,22 @@ export function LandingPage({ onUpload, onViewPapers, hasPapers }: LandingPagePr
         </div>
         
         {hasPapers && (
-          <button
-            onClick={onViewPapers}
-            className="text-gray-700 hover:text-[#41337A] transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100"
-          >
-            My Papers
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onLitReview}
+              className="text-gray-700 hover:text-[#41337A] transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100"
+            >
+              <BookOpen className="w-4 h-4" />
+              Literature Review
+            </button>
+            <button
+              onClick={onViewPapers}
+              className="text-gray-700 hover:text-[#41337A] transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100"
+            >
+              My Papers
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         )}
       </header>
 

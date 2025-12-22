@@ -11,15 +11,13 @@ from ingest_paper import ingest_paper
 from query_improved import content_generator
 from conversation import conversation_store, Conversation
 from rate_limit import rate_limiter
-from cache import embedding_cache, rate_limiter
+from cache import embedding_cache
 from batch_processor import batch_job_store, process_batch
 
 from literature_review import (
     compare_papers,
     synthesize_findings,
-    analyze_literature,
     extract_methodology_summary,
-    generate_review_report,
 )
 
 from clustering import (
@@ -183,11 +181,6 @@ class SynthesizeResponse(BaseModel):
     findings_comparison: Optional[str] = None
     papers_analyzed: List[str]
     confidence: str
-
-class ReviewRequest(BaseModel):
-    pdf_ids: List[str]
-    title: Optional[str] = None
-    format: str = "markdown"  # "markdown" or "json"
 
 # ---------------- Routes ----------------
 
@@ -603,9 +596,9 @@ async def cluster_papers(payload: ClusterRequest):
         result = analyze_paper_collection(
             pdf_ids=pdf_ids,
             clustering_method=payload.method,
+            n_clusters=params.get("n_clusters"),
             extract_topics=True,
             use_llm_summaries=False,
-            **params
         )
         
         if "error" in result:

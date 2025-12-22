@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, File, MessageSquare, Send, Sparkles, Upload, Zap, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, File, MessageSquare, Send, Sparkles, Upload, Zap, Loader2, Trash2, BookOpen } from 'lucide-react';
 import { askQuestion, clearPapers } from '@/api';
 
 interface Paper {
@@ -14,6 +14,7 @@ interface PapersViewProps {
   onBack: () => void;
   onUploadMore: () => void;
   onClearPapers: () => void;
+  onLitReview: () => void;
 }
 
 interface Message {
@@ -22,7 +23,7 @@ interface Message {
   content: string;
 }
 
-export function PapersView({ papers, onBack, onUploadMore, onClearPapers }: PapersViewProps) {
+export function PapersView({ papers, onBack, onUploadMore, onClearPapers, onLitReview }: PapersViewProps) {
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(papers[0] || null);
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -112,6 +113,14 @@ export function PapersView({ papers, onBack, onUploadMore, onClearPapers }: Pape
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={onLitReview}
+              className="flex items-center gap-2 px-4 py-2 text-[#41337A] bg-[#41337A]/5 border border-[#41337A]/20 rounded-xl hover:bg-[#41337A]/10 transition-all duration-300"
+              style={{ fontWeight: 500 }}
+            >
+              <BookOpen className="w-4 h-4" />
+              Literature Review
+            </button>
             <button
               onClick={handleClearPapers}
               disabled={isClearing || papers.length === 0}

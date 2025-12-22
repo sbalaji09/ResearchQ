@@ -9,6 +9,7 @@ from pinecone import Pinecone
 from dotenv import load_dotenv
 from query_improved import query_with_section_boost
 import re
+from dataclasses import asdict
 
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
@@ -183,7 +184,6 @@ def extract_methodology_summary(pdf_id: str) -> Dict[str, Any]:
     
     # parse the response
     def extract_field(text: str, field_name: str) -> Optional[str]:
-        import re
         pattern = rf"{field_name}:\s*(.+?)(?=\n[A-Z_]+:|$)"
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         if match:
@@ -264,7 +264,6 @@ def compare_papers(pdf_ids: List[str]) -> ComparisonResult:
     
     # parse the response
     def extract_list(text: str, section_name: str) -> List[str]:
-        import re
         pattern = rf"{section_name}:\s*\n((?:[-•*]\s*.+\n?)+)"
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
@@ -273,7 +272,6 @@ def compare_papers(pdf_ids: List[str]) -> ComparisonResult:
         return []
     
     def extract_paragraph(text: str, section_name: str) -> str:
-        import re
         pattern = rf"{section_name}:\s*\n(.+?)(?=\n[A-Z_]+:|$)"
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         if match:
