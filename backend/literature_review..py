@@ -56,3 +56,45 @@ class LiteratureReviewReport:
     gaps_and_future_work: str
     references: List[str]
     format: str = "markdown"
+
+# retrieve all chunks for a specific paper from Pinecone
+def get_paper_chunks(
+    pdf_id: str,
+    section_filter: Optional[List[str]] = None,
+    max_chunks: int = 50,
+) -> List[Dict[str, Any]]:
+    index_name = os.environ.get("PINECONE_INDEX_NAME")
+    index = pc.Index(index_name)
+    
+    stats = index.describe_index_stats()
+    dimension = stats.dimension
+    dummy_vector = [0.0] * dimension
+    
+    # query with metadata filter
+    results = index.query(
+        vector=dummy_vector,
+        top_k=max_chunks,
+        include_metadata=True,
+        filter={"pdf_id": {"$eq": pdf_id}}
+    )
+    
+    chunks = []
+    for match in results.matches:
+        metadata = match.metadata or {}
+        section = metadata.get("section", "Unknown")
+        
+        # apply section filter if provided
+        if section_filter:
+            if not any(s.lower() in section.lower() for s in section_filter):
+                continue
+        
+        chunks.append({
+            "id": match.id,
+            "text": metadata.get("text", ""),
+            "section": section,
+            "chunk_type": metadata.get("chunk_type", "unknown"),
+            "pdf_id": pdf_id,
+            "score": match.score,
+        })
+    
+    return chunks
