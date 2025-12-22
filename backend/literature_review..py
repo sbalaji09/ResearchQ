@@ -7,6 +7,7 @@ from collections import defaultdict
 from openai import OpenAI
 from pinecone import Pinecone
 from dotenv import load_dotenv
+from query_improved import query_with_section_boost
 
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
@@ -285,4 +286,120 @@ def compare_papers(pdf_ids: List[str]) -> ComparisonResult:
         key_themes=extract_list(result_text, "KEY_THEMES"),
         methodology_comparison=extract_paragraph(result_text, "METHODOLOGY_COMPARISON"),
         raw_context={"paper_contents": paper_contents}
+    )
+
+# generates a synthesis of findings across papers
+def synthesize_findings(
+    pdf_ids: List[str],
+    focus_question: Optional[str] = None,
+) -> SynthesisResult:
+    if not focus_question:
+        focus_question = "What are the main findings, contributions, and conclusions of these papers? How do they relate to each other?"
+    
+    # retrieve relevant chunks from all papers
+    results = query_with_section_boost(
+        question=focus_question,
+        top_k=15,  # Get more chunks for synthesis
+        boost_factor=2.0,
+        use_reranking=True,
+        pdf_ids=pdf_ids,
+    )
+    
+    if not results:
+        return SynthesisResult(
+            synthesis="No relevant content found in the specified papers.",
+            citations=[],
+            papers_analyzed=pdf_ids,
+            confidence="low",
+        )
+    
+    chunks_by_paper = defaultdict(list)
+    for r in results:
+        doc_id = r.get("metadata", {}).get("pdf_id", "unknown")
+        chunks_by_paper[doc_id].append(r)
+    
+    # build synthesis prompt with organized chunks
+    chunks_text = ""
+    citations = []
+    citation_id = 1
+    
+    for pdf_id in pdf_ids:
+        if pdf_id in chunks_by_paper:
+            chunks_text += f"\n\n--- PAPER: {pdf_id} ---\n\n"
+            for chunk in chunks_by_paper[pdf_id][:5]:  # Max 5 per paper
+                text = chunk.get("text", "")
+                section = chunk.get("section", "Unknown")
+                
+                citations.append({
+                    "id": citation_id,
+                    "document": pdf_id,
+                    "section": section,
+                    "text": text[:500] + "..." if len(text) > 500 else text,
+                })
+                
+                chunks_text += f"[{citation_id}] (Section: {section})\n{text}\n\n"
+                citation_id += 1
+    
+    # methodology summaries for comparison
+    methodology_summaries = []
+    for pdf_id in pdf_ids:
+        method_summary = extract_methodology_summary(pdf_id)
+        if method_summary.get("summary") and "not found" not in method_summary["summary"].lower():
+            methodology_summaries.append(f"**{pdf_id}**: {method_summary['summary']}")
+    
+    methodology_comparison = "\n".join(methodology_summaries) if methodology_summaries else None
+    
+    # generate synthesis
+    synthesis_prompt = f"""You are synthesizing research findings from {len(pdf_ids)} academic papers.
+
+        FOCUS QUESTION: {focus_question}
+
+        EXCERPTS FROM PAPERS:
+        {chunks_text}
+
+        INSTRUCTIONS:
+        1. Synthesize the main findings and insights across all papers
+        2. Identify common themes and patterns
+        3. Note any contradictions or debates between papers
+        4. Use citations [1], [2], etc. to reference specific claims
+        5. Organize your synthesis thematically, not paper-by-paper
+        6. Be comprehensive but concise (aim for 3-4 paragraphs)
+
+        Write a well-organized synthesis that a researcher could use to understand the collective insights from these papers."""
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o",  # Use stronger model for synthesis
+        messages=[{"role": "user", "content": synthesis_prompt}],
+        max_tokens=1500,
+        temperature=0.4,
+    )
+    
+    synthesis_text = response.choices[0].message.content.strip()
+    
+    # findings comparison
+    findings_prompt = f"""Based on these paper excerpts, create a brief comparison of the key findings:
+
+        {chunks_text[:4000]}
+
+        Format as a bulleted list highlighting:
+        - What each paper found
+        - How findings agree or disagree
+        - Overall pattern of results"""
+
+    findings_response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": findings_prompt}],
+        max_tokens=500,
+        temperature=0.3,
+    )
+    
+    findings_comparison = findings_response.choices[0].message.content.strip()
+    
+    return SynthesisResult(
+        synthesis=synthesis_text,
+        citations=citations,
+        methodology_comparison=methodology_comparison,
+        findings_comparison=findings_comparison,
+        papers_analyzed=pdf_ids,
+        confidence="high" if len(results) >= 10 else "medium",
     )
