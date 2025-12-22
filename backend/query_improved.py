@@ -14,6 +14,7 @@ from retrieval import (
 
 from exceptions import NoRelevantChunksError, LowRelevanceError, RetrievalError, GenerationError
 from cache import embedding_cache, detect_query_complexity, get_model_for_complexity
+import re
 
 _cross_encoder = None
 
@@ -343,6 +344,28 @@ def balance_results_across_documents(
     balanced.sort(key=lambda x: x['final_score'], reverse=True)
     
     return balanced[:top_k]
+
+# detect if question is asking to compare across documents
+def is_cross_document_query(question: str) -> bool:
+    """Detect if question is asking to compare across documents"""
+    cross_doc_patterns = [
+        r'\bcompare\b',
+        r'\bcontrast\b',
+        r'\bdifference[s]?\b',
+        r'\bsimilarit(y|ies)\b',
+        r'\bboth (paper|stud|document)',
+        r'\beach (paper|stud|document)',
+        r'\ball (paper|stud|document)',
+        r'\bacross\b',
+        r'\bbetween the\b',
+        r'\bhow do(es)? .* differ\b',
+    ]
+    
+    question_lower = question.lower()
+    for pattern in cross_doc_patterns:
+        if re.search(pattern, question_lower):
+            return True
+    return False
 
 def main():
     """Test retrieval with improved pipeline"""
