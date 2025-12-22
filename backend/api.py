@@ -12,6 +12,7 @@ from query_improved import content_generator
 from conversation import conversation_store, Conversation
 from rate_limit import rate_limiter
 from cache import embedding_cache, rate_limiter
+from batch_processor import batch_job_store, process_batch
 
 from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / ".env"
