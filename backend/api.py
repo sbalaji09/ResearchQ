@@ -26,6 +26,9 @@ from clustering import (
     get_all_pdf_ids,
 )
 
+from paper_store import paper_store
+from cluster_store import cluster_store
+
 from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
@@ -182,6 +185,43 @@ class SynthesizeResponse(BaseModel):
     papers_analyzed: List[str]
     confidence: str
 
+class PaperMetadataResponse(BaseModel):
+    pdf_id: str
+    filename: str
+    title: Optional[str] = None
+    abstract: Optional[str] = None
+    authors: Optional[List[str]] = None
+    domain: Optional[str] = None
+    upload_date: str
+    chunk_count: int
+
+class SaveClusterRequest(BaseModel):
+    name: str
+    method: str
+    clusters: List[Dict[str, Any]]
+    total_papers: int
+    outliers: Optional[List[str]] = None
+
+class RenameClusterRequest(BaseModel):
+    new_name: str
+
+class SavedClusterResponse(BaseModel):
+    cluster_id: str
+    name: str
+    pdf_ids: List[str]
+    topics: List[str]
+    method: str
+    created_at: str
+
+class ClusteringSessionResponse(BaseModel):
+    session_id: str
+    name: str
+    method: str
+    clusters: List[SavedClusterResponse]
+    total_papers: int
+    outliers: List[str]
+    created_at: str
+
 # ---------------- Routes ----------------
 
 @app.get("/")
@@ -208,7 +248,17 @@ async def upload_pdf(file: UploadFile = File(...), domain: Optional[str] = None)
     
     dest_path.write_bytes(file_bytes)
 
-    ingest_paper(dest_path, pdf_id=safe_filename.replace(".pdf", ""), clear_existing=False, domain=domain)
+    pdf_id = safe_filename.replace(".pdf", "")
+    result = ingest_paper(dest_path, pdf_id=pdf_id, clear_existing=False, domain=domain)
+
+    # Store paper metadata
+    chunk_count = result.get("chunks", 0) if isinstance(result, dict) else 0
+    paper_store.add_paper(
+        pdf_id=pdf_id,
+        filename=safe_filename,
+        domain=domain,
+        chunk_count=chunk_count,
+    )
   except HTTPException:
     raise
   except Exception as e:
@@ -299,6 +349,10 @@ async def clear_data():
       pdf_path.unlink()
       deleted_files.append(pdf_path.name)
 
+    # Clear paper and cluster stores
+    paper_store.clear()
+    cluster_store.clear()
+
     return ClearResponse(
       status="success",
       message=f"Cleared all vectors and deleted {len(deleted_files)} file(s)"
@@ -319,7 +373,10 @@ async def delete_paper(payload: DeletePaperRequest):
     pdf_path = TEST_PAPERS_DIR / f"{pdf_id}.pdf"
     if pdf_path.exists():
       pdf_path.unlink()
-    
+
+    # Remove from paper store
+    paper_store.delete_paper(pdf_id)
+
     return {"status": "success", "message": f"Deleted paper: {pdf_id}"}
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Failed to delete paper: {e}")
@@ -598,7 +655,6 @@ async def cluster_papers(payload: ClusterRequest):
             clustering_method=payload.method,
             n_clusters=params.get("n_clusters"),
             extract_topics=True,
-            use_llm_summaries=False,
         )
         
         if "error" in result:
@@ -688,15 +744,177 @@ async def synthesize_papers(payload: SynthesizeRequest):
 async def get_methodology_summary(pdf_id: str):
     try:
         result = extract_methodology_summary(pdf_id)
-        
+
         if result.get("error"):
             raise HTTPException(
                 status_code=404,
                 detail=f"Could not extract methodology: {result['error']}"
             )
-        
+
         return result
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Methodology extraction failed: {str(e)}")
+
+
+# -------- Paper Metadata Endpoints --------
+
+@app.get("/papers/{pdf_id}/metadata", response_model=PaperMetadataResponse)
+async def get_paper_metadata(pdf_id: str):
+    """Get detailed metadata for a specific paper."""
+    paper = paper_store.get_paper(pdf_id)
+    if not paper:
+        raise HTTPException(status_code=404, detail=f"Paper '{pdf_id}' not found")
+
+    return PaperMetadataResponse(
+        pdf_id=paper.pdf_id,
+        filename=paper.filename,
+        title=paper.title,
+        abstract=paper.abstract,
+        authors=paper.authors,
+        domain=paper.domain,
+        upload_date=paper.upload_date,
+        chunk_count=paper.chunk_count,
+    )
+
+
+@app.get("/papers/metadata", response_model=List[PaperMetadataResponse])
+async def list_papers_metadata():
+    """Get metadata for all papers."""
+    papers = paper_store.list_papers()
+    return [
+        PaperMetadataResponse(
+            pdf_id=p.pdf_id,
+            filename=p.filename,
+            title=p.title,
+            abstract=p.abstract,
+            authors=p.authors,
+            domain=p.domain,
+            upload_date=p.upload_date,
+            chunk_count=p.chunk_count,
+        )
+        for p in papers
+    ]
+
+
+# -------- Cluster Persistence Endpoints --------
+
+@app.post("/clusters/save", response_model=ClusteringSessionResponse)
+async def save_clustering_result(payload: SaveClusterRequest):
+    """Save a clustering result for later reference."""
+    session = cluster_store.save_clustering_result(
+        name=payload.name,
+        method=payload.method,
+        clusters=payload.clusters,
+        total_papers=payload.total_papers,
+        outliers=payload.outliers,
+    )
+
+    return ClusteringSessionResponse(
+        session_id=session.session_id,
+        name=session.name,
+        method=session.method,
+        clusters=[
+            SavedClusterResponse(
+                cluster_id=c.cluster_id,
+                name=c.name,
+                pdf_ids=c.pdf_ids,
+                topics=c.topics,
+                method=c.method,
+                created_at=c.created_at,
+            )
+            for c in session.clusters
+        ],
+        total_papers=session.total_papers,
+        outliers=session.outliers,
+        created_at=session.created_at,
+    )
+
+
+@app.get("/clusters/sessions", response_model=List[ClusteringSessionResponse])
+async def list_saved_sessions():
+    """List all saved clustering sessions."""
+    sessions = cluster_store.list_sessions()
+    return [
+        ClusteringSessionResponse(
+            session_id=s.session_id,
+            name=s.name,
+            method=s.method,
+            clusters=[
+                SavedClusterResponse(
+                    cluster_id=c.cluster_id,
+                    name=c.name,
+                    pdf_ids=c.pdf_ids,
+                    topics=c.topics,
+                    method=c.method,
+                    created_at=c.created_at,
+                )
+                for c in s.clusters
+            ],
+            total_papers=s.total_papers,
+            outliers=s.outliers,
+            created_at=s.created_at,
+        )
+        for s in sessions
+    ]
+
+
+@app.get("/clusters/sessions/{session_id}", response_model=ClusteringSessionResponse)
+async def get_saved_session(session_id: str):
+    """Get a specific saved clustering session."""
+    session = cluster_store.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+
+    return ClusteringSessionResponse(
+        session_id=session.session_id,
+        name=session.name,
+        method=session.method,
+        clusters=[
+            SavedClusterResponse(
+                cluster_id=c.cluster_id,
+                name=c.name,
+                pdf_ids=c.pdf_ids,
+                topics=c.topics,
+                method=c.method,
+                created_at=c.created_at,
+            )
+            for c in session.clusters
+        ],
+        total_papers=session.total_papers,
+        outliers=session.outliers,
+        created_at=session.created_at,
+    )
+
+
+@app.patch("/clusters/sessions/{session_id}")
+async def rename_session(session_id: str, payload: RenameClusterRequest):
+    """Rename a saved clustering session."""
+    session = cluster_store.rename_session(session_id, payload.new_name)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+
+    return {"status": "success", "message": f"Session renamed to '{payload.new_name}'"}
+
+
+@app.patch("/clusters/sessions/{session_id}/clusters/{cluster_id}")
+async def rename_cluster(session_id: str, cluster_id: str, payload: RenameClusterRequest):
+    """Rename a cluster within a session."""
+    cluster = cluster_store.rename_cluster(session_id, cluster_id, payload.new_name)
+    if not cluster:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Cluster '{cluster_id}' not found in session '{session_id}'"
+        )
+
+    return {"status": "success", "message": f"Cluster renamed to '{payload.new_name}'"}
+
+
+@app.delete("/clusters/sessions/{session_id}")
+async def delete_session(session_id: str):
+    """Delete a saved clustering session."""
+    if cluster_store.delete_session(session_id):
+        return {"status": "success", "message": f"Session '{session_id}' deleted"}
+
+    raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")

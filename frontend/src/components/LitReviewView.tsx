@@ -12,6 +12,10 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
+  Save,
+  FolderOpen,
+  Trash2,
+  X,
 } from 'lucide-react';
 import {
   getPapers,
@@ -19,11 +23,15 @@ import {
   comparePapers,
   synthesizePapers,
   findSimilarPapers,
+  saveClusteringResult,
+  getSavedSessions,
+  deleteSession,
   type PaperInfo,
   type ClusterResponse,
   type CompareResponse,
   type SynthesizeResponse,
   type SimilarPapersResponse,
+  type ClusteringSession,
 } from '@/api';
 
 interface LitReviewViewProps {
@@ -60,8 +68,15 @@ export function LitReviewView({ onBack }: LitReviewViewProps) {
   // Expanded clusters
   const [expandedClusters, setExpandedClusters] = useState<Set<number>>(new Set());
 
+  // Saved sessions state
+  const [savedSessions, setSavedSessions] = useState<ClusteringSession[]>([]);
+  const [showSavedSessions, setShowSavedSessions] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [sessionName, setSessionName] = useState('');
+
   useEffect(() => {
     loadPapers();
+    loadSavedSessions();
   }, []);
 
   async function loadPapers() {
@@ -74,6 +89,65 @@ export function LitReviewView({ onBack }: LitReviewViewProps) {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function loadSavedSessions() {
+    try {
+      const sessions = await getSavedSessions();
+      setSavedSessions(sessions);
+    } catch {
+      // Silently fail - saved sessions are optional
+    }
+  }
+
+  async function handleSaveCluster() {
+    if (!clusterResult || !sessionName.trim()) return;
+
+    setIsProcessing(true);
+    try {
+      await saveClusteringResult(
+        sessionName.trim(),
+        clusterResult.method,
+        clusterResult.clusters,
+        clusterResult.total_papers,
+        clusterResult.outliers
+      );
+      await loadSavedSessions();
+      setSaveDialogOpen(false);
+      setSessionName('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  async function handleDeleteSession(sessionId: string) {
+    try {
+      await deleteSession(sessionId);
+      setSavedSessions(prev => prev.filter(s => s.session_id !== sessionId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete session');
+    }
+  }
+
+  function loadSavedSession(session: ClusteringSession) {
+    // Convert saved session back to ClusterResponse format
+    setClusterResult({
+      method: session.method,
+      total_papers: session.total_papers,
+      num_clusters: session.clusters.length,
+      clusters: session.clusters.map((c, i) => ({
+        id: i,
+        papers: c.pdf_ids,
+        size: c.pdf_ids.length,
+        topics: c.topics,
+        summary: null,
+      })),
+      outliers: session.outliers,
+    });
+    setExpandedClusters(new Set(session.clusters.map((_, i) => i)));
+    setShowSavedSessions(false);
   }
 
   function togglePaperSelection(pdfId: string) {
@@ -405,24 +479,75 @@ export function LitReviewView({ onBack }: LitReviewViewProps) {
                     )}
                   </div>
 
-                  <button
-                    onClick={handleCluster}
-                    disabled={isProcessing || selectedPapers.size < 2}
-                    className="px-6 py-3 bg-gradient-to-r from-[#41337A] to-[#5a4a9f] text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Clustering...
-                      </>
-                    ) : (
-                      <>
-                        <Network className="w-4 h-4" />
-                        Cluster Papers
-                      </>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleCluster}
+                      disabled={isProcessing || selectedPapers.size < 2}
+                      className="px-6 py-3 bg-gradient-to-r from-[#41337A] to-[#5a4a9f] text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Clustering...
+                        </>
+                      ) : (
+                        <>
+                          <Network className="w-4 h-4" />
+                          Cluster Papers
+                        </>
+                      )}
+                    </button>
+
+                    {savedSessions.length > 0 && (
+                      <button
+                        onClick={() => setShowSavedSessions(!showSavedSessions)}
+                        className="px-4 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all flex items-center gap-2"
+                      >
+                        <FolderOpen className="w-4 h-4" />
+                        Load Saved ({savedSessions.length})
+                      </button>
                     )}
-                  </button>
+                  </div>
                 </div>
+
+                {/* Saved Sessions Dropdown */}
+                {showSavedSessions && savedSessions.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-gray-700">Saved Clustering Sessions</h4>
+                      <button
+                        onClick={() => setShowSavedSessions(false)}
+                        className="p-1 hover:bg-gray-100 rounded"
+                      >
+                        <X className="w-4 h-4 text-gray-500" />
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {savedSessions.map((session) => (
+                        <div
+                          key={session.session_id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <button
+                            onClick={() => loadSavedSession(session)}
+                            className="flex-1 text-left"
+                          >
+                            <p className="text-sm font-medium">{session.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {session.clusters.length} clusters, {session.total_papers} papers
+                            </p>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSession(session.session_id)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Cluster Results */}
                 {clusterResult && (
@@ -431,10 +556,54 @@ export function LitReviewView({ onBack }: LitReviewViewProps) {
                       <h3 className="text-lg" style={{ fontWeight: 600 }}>
                         Clustering Results
                       </h3>
-                      <span className="text-sm text-gray-500">
-                        {clusterResult.num_clusters} clusters from {clusterResult.total_papers} papers
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-500">
+                          {clusterResult.num_clusters} clusters from {clusterResult.total_papers} papers
+                        </span>
+                        <button
+                          onClick={() => setSaveDialogOpen(true)}
+                          className="px-3 py-1.5 text-sm bg-[#41337A]/10 text-[#41337A] rounded-lg hover:bg-[#41337A]/20 transition-colors flex items-center gap-1.5"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          Save
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Save Dialog */}
+                    {saveDialogOpen && (
+                      <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Save this clustering result
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={sessionName}
+                            onChange={(e) => setSessionName(e.target.value)}
+                            placeholder="Enter a name for this session..."
+                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#41337A]"
+                          />
+                          <button
+                            onClick={handleSaveCluster}
+                            disabled={isProcessing || !sessionName.trim()}
+                            className="px-4 py-2 bg-[#41337A] text-white rounded-lg hover:bg-[#5a4a9f] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSaveDialogOpen(false);
+                              setSessionName('');
+                            }}
+                            className="px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="space-y-3">
                       {clusterResult.clusters.map((cluster) => (

@@ -10,14 +10,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from pinecone import Pinecone
-from openai import OpenAI
 from dotenv import load_dotenv
 
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # represents a paper's aggregated embedding
 @dataclass
@@ -358,62 +356,6 @@ def extract_cluster_topics_tfidf(
     
     return topics
 
-# use GPT to generate a summary of what theme connects papers in a cluster
-def extract_cluster_topics_llm(
-    cluster: ClusterResult,
-    max_papers: int = 5,
-) -> str:
-    index_name = os.environ.get("PINECONE_INDEX_NAME")
-    index = pc.Index(index_name)
-    
-    # collect abstracts / intros from papers
-    paper_summaries = []
-    
-    for pdf_id in cluster.pdf_ids[:max_papers]:
-        stats = index.describe_index_stats()
-        dummy_vector = [0.0] * stats.dimension
-        
-        results = index.query(
-            vector=dummy_vector,
-            top_k=100,
-            include_metadata=True,
-            filter={"pdf_id": {"$eq": pdf_id}}
-        )
-        
-        summary_text = ""
-        for match in results.matches:
-            section = match.metadata.get("section", "").lower()
-            if "abstract" in section or "introduction" in section:
-                summary_text = match.metadata.get("text", "")[:500]
-                break
-        
-        if summary_text:
-            paper_summaries.append(f"Paper '{pdf_id}': {summary_text}")
-    
-    if not paper_summaries:
-        return "Unable to determine cluster theme - no text found."
-    
-    prompt = f"""Analyze these paper excerpts and identify the common theme or topic that connects them.
-
-        Papers in this cluster:
-        {chr(10).join(paper_summaries)}
-
-        Provide a concise 1-2 sentence summary of the unifying theme. Focus on:
-        - The main research area/domain
-        - Common methodologies or approaches
-        - Shared problems being addressed
-
-        Theme:"""
-
-    response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",  # Use a cheaper model for this task
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=150,
-        temperature=0.3,
-    )
-    
-    return response.choices[0].message.content.strip()
-
 # find papers most similar to a given paper by using cosine similarity
 def find_similar_papers(
     pdf_id: str,
@@ -451,29 +393,12 @@ def find_similar_papers(
     
     return results[:top_k]
 
-# builds a pairwise similarity matrix for all papers
-def build_similarity_matrix(pdf_ids: List[str]) -> Tuple[np.ndarray, List[str]]:
-    embeddings = get_all_paper_embeddings(pdf_ids)
-    
-    if not embeddings:
-        return np.array([]), []
-    
-    # build matrix
-    X = np.array([pe.embedding for pe in embeddings])
-    ordered_ids = [pe.pdf_id for pe in embeddings]
-    
-    # compute pairwise similarities
-    sim_matrix = cosine_similarity(X)
-    
-    return sim_matrix, ordered_ids
-
 # complete analysis of a paper collection
 def analyze_paper_collection(
     pdf_ids: Optional[List[str]] = None,
     clustering_method: str = "hierarchical",
     n_clusters: Optional[int] = None,
     extract_topics: bool = True,
-    use_llm_summaries: bool = False,
 ) -> Dict[str, Any]:
     if pdf_ids is None:
         pdf_ids = get_all_pdf_ids()
@@ -502,8 +427,6 @@ def analyze_paper_collection(
     if extract_topics:
         for cluster in clusters:
             cluster.topics = extract_cluster_topics_tfidf(cluster)
-            if use_llm_summaries:
-                cluster.summary = extract_cluster_topics_llm(cluster)
     
     # build result
     result = {

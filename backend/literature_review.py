@@ -9,7 +9,6 @@ from pinecone import Pinecone
 from dotenv import load_dotenv
 from query_improved import query_with_section_boost
 import re
-from dataclasses import asdict
 
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
@@ -17,26 +16,14 @@ load_dotenv(env_path)
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-# summary of a single paper's key aspects
-@dataclass
-class PaperSummary:
-    pdf_id: str
-    title: Optional[str] = None
-    abstract: Optional[str] = None
-    methodology: Optional[str] = None
-    key_findings: List[str] = field(default_factory=list)
-    limitations: Optional[str] = None
-    domain: Optional[str] = None
-
 # result of comparing multiple papers
-@dataclass 
+@dataclass
 class ComparisonResult:
     pdf_ids: List[str]
     similarities: List[str]
     differences: List[str]
     key_themes: List[str]
     methodology_comparison: Optional[str] = None
-    raw_context: Optional[Dict] = None
 
 # result of synthesizing findings across papers
 @dataclass
@@ -47,18 +34,6 @@ class SynthesisResult:
     findings_comparison: Optional[str] = None
     confidence: str = "medium"
     papers_analyzed: List[str] = field(default_factory=list)
-
-# structured literature review output
-@dataclass
-class LiteratureReviewReport:
-    title: str
-    papers: List[PaperSummary]
-    themes: List[Dict[str, Any]]
-    synthesis: str
-    methodology_overview: str
-    gaps_and_future_work: str
-    references: List[str]
-    format: str = "markdown"
 
 # retrieve all chunks for a specific paper from Pinecone
 def get_paper_chunks(
@@ -124,10 +99,6 @@ def get_abstract(pdf_id: str) -> str:
 # get the methodology section
 def get_methodology(pdf_id: str) -> str:
     return get_section_text(pdf_id, ["method", "methodology", "materials", "procedure", "approach"])
-
-# get the results section
-def get_results(pdf_id: str) -> str:
-    return get_section_text(pdf_id, ["result", "finding", "outcome", "evaluation"])
 
 # get the conclusion section
 def get_conclusion(pdf_id: str) -> str:
@@ -284,7 +255,6 @@ def compare_papers(pdf_ids: List[str]) -> ComparisonResult:
         differences=extract_list(result_text, "DIFFERENCES"),
         key_themes=extract_list(result_text, "KEY_THEMES"),
         methodology_comparison=extract_paragraph(result_text, "METHODOLOGY_COMPARISON"),
-        raw_context={"paper_contents": paper_contents}
     )
 
 # generates a synthesis of findings across papers
@@ -402,192 +372,3 @@ def synthesize_findings(
         papers_analyzed=pdf_ids,
         confidence="high" if len(results) >= 10 else "medium",
     )
-
-# generate a complete structured literature review report
-def generate_review_report(
-    pdf_ids: List[str],
-    title: Optional[str] = None,
-    format: str = "markdown",
-) -> LiteratureReviewReport:
-    if not pdf_ids:
-        raise ValueError("No papers provided for review")
-    
-    # generate summaries for each paper
-    paper_summaries = []
-    for pdf_id in pdf_ids:
-        abstract = get_abstract(pdf_id)
-        methodology = extract_methodology_summary(pdf_id)
-        conclusion = get_conclusion(pdf_id)
-        
-        # extract key findings from each conclusion
-        findings = []
-        if conclusion:
-            findings_prompt = f"""Extract 2-3 key findings from this conclusion:
-
-                {conclusion[:1500]}
-
-                List each finding as a single sentence."""
-
-            response = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": findings_prompt}],
-                max_tokens=200,
-                temperature=0.3,
-            )
-            findings = [f.strip() for f in response.choices[0].message.content.split("\n") if f.strip()]
-        
-        paper_summaries.append(PaperSummary(
-            pdf_id=pdf_id,
-            abstract=abstract[:500] if abstract else None,
-            methodology=methodology.get("summary"),
-            key_findings=findings[:3],
-            limitations=None,
-        ))
-    
-    # identify themes
-    all_abstracts = "\n\n".join(
-        f"Paper {s.pdf_id}: {s.abstract}" 
-        for s in paper_summaries 
-        if s.abstract
-    )
-    
-    themes_prompt = f"""Identify 3-5 major themes across these paper abstracts:
-
-        {all_abstracts[:4000]}
-
-        For each theme, provide:
-        1. Theme name (2-4 words)
-        2. Brief description (1 sentence)
-        3. Which papers address this theme
-
-        Format:
-        THEME: [name]
-        DESCRIPTION: [description]
-        PAPERS: [comma-separated list]"""
-
-    themes_response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": themes_prompt}],
-        max_tokens=600,
-        temperature=0.4,
-    )
-    
-    # parse themes
-    themes_text = themes_response.choices[0].message.content
-    themes = []
-    
-    theme_blocks = re.split(r'\n(?=THEME:)', themes_text)
-    for block in theme_blocks:
-        if "THEME:" in block:
-            name_match = re.search(r'THEME:\s*(.+)', block)
-            desc_match = re.search(r'DESCRIPTION:\s*(.+)', block)
-            papers_match = re.search(r'PAPERS:\s*(.+)', block)
-            
-            themes.append({
-                "name": name_match.group(1).strip() if name_match else "Unknown Theme",
-                "description": desc_match.group(1).strip() if desc_match else "",
-                "papers": papers_match.group(1).strip() if papers_match else "",
-            })
-    
-    # generate synthesis
-    synthesis_result = synthesize_findings(pdf_ids)
-    
-    # methodology overview
-    methodology_texts = []
-    for summary in paper_summaries:
-        if summary.methodology:
-            methodology_texts.append(f"**{summary.pdf_id}**: {summary.methodology}")
-    
-    methodology_overview = "\n\n".join(methodology_texts) if methodology_texts else "Methodology information not available."
-    
-    # identify gaps and future directions
-    gaps_prompt = f"""Based on these paper summaries, identify research gaps and future directions:
-
-            {chr(10).join(f"- {s.pdf_id}: {s.abstract[:300]}" for s in paper_summaries if s.abstract)}
-
-            Provide:
-            1. 2-3 research gaps identified across these papers
-            2. 2-3 suggestions for future research directions
-            3. Any methodological improvements that could be made
-
-            Be specific and actionable."""
-
-    gaps_response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": gaps_prompt}],
-        max_tokens=400,
-        temperature=0.4,
-    )
-    
-    gaps_and_future = gaps_response.choices[0].message.content.strip()
-    
-    # generate title if not provided
-    if not title:
-        title_prompt = f"""Generate a concise literature review title for papers covering these themes: {', '.join(t['name'] for t in themes[:3])}
-
-            The title should be academic in style, 5-10 words."""
-        
-        title_response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": title_prompt}],
-            max_tokens=50,
-            temperature=0.5,
-        )
-        title = title_response.choices[0].message.content.strip().strip('"')
-    
-    # generate references list
-    references = [f"[{i+1}] {pdf_id}" for i, pdf_id in enumerate(pdf_ids)]
-    
-    return LiteratureReviewReport(
-        title=title,
-        papers=paper_summaries,
-        themes=themes,
-        synthesis=synthesis_result.synthesis,
-        methodology_overview=methodology_overview,
-        gaps_and_future_work=gaps_and_future,
-        references=references,
-        format=format,
-    )
-
-def analyze_literature(
-    pdf_ids: List[str],
-    analysis_type: str = "synthesis",
-    focus_question: Optional[str] = None,
-    output_format: str = "json",
-) -> Dict[str, Any]:
-    """
-    Main entry point for literature analysis.
-    
-    Args:
-        pdf_ids: Papers to analyze
-        analysis_type: Type of analysis ("compare", "synthesis", "review")
-        focus_question: Optional question to focus the analysis
-        output_format: "json" or "markdown"
-        
-    Returns:
-        Analysis results as a dictionary
-    """
-    if analysis_type == "compare":
-        result = compare_papers(pdf_ids)
-        return {
-            "type": "comparison",
-            "pdf_ids": result.pdf_ids,
-            "similarities": result.similarities,
-            "differences": result.differences,
-            "key_themes": result.key_themes,
-            "methodology_comparison": result.methodology_comparison,
-        }
-    
-    elif analysis_type == "synthesis":
-        result = synthesize_findings(pdf_ids, focus_question)
-        return {
-            "type": "synthesis",
-            "synthesis": result.synthesis,
-            "citations": result.citations,
-            "methodology_comparison": result.methodology_comparison,
-            "findings_comparison": result.findings_comparison,
-            "papers_analyzed": result.papers_analyzed,
-            "confidence": result.confidence,
-        }
-    else:
-        raise ValueError(f"Unknown analysis type: {analysis_type}")

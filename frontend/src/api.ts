@@ -57,6 +57,36 @@ export interface PaperInfo {
   path: string;
 }
 
+export interface PaperMetadata {
+  pdf_id: string;
+  filename: string;
+  title: string | null;
+  abstract: string | null;
+  authors: string[] | null;
+  domain: string | null;
+  upload_date: string;
+  chunk_count: number;
+}
+
+export interface SavedCluster {
+  cluster_id: string;
+  name: string;
+  pdf_ids: string[];
+  topics: string[];
+  method: string;
+  created_at: string;
+}
+
+export interface ClusteringSession {
+  session_id: string;
+  name: string;
+  method: string;
+  clusters: SavedCluster[];
+  total_papers: number;
+  outliers: string[];
+  created_at: string;
+}
+
 // upload a single paper to the backend
 export async function uploadPaper(file: File) {
   const formData = new FormData();
@@ -223,4 +253,116 @@ export async function synthesizePapers(
   }
 
   return res.json();
+}
+
+// get metadata for all papers
+export async function getPapersMetadata(): Promise<PaperMetadata[]> {
+  const res = await fetch(`${BASE_URL}/papers/metadata`);
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch paper metadata.");
+  }
+
+  return res.json();
+}
+
+// save a clustering result
+export async function saveClusteringResult(
+  name: string,
+  method: string,
+  clusters: ClusterResult[],
+  totalPapers: number,
+  outliers?: string[]
+): Promise<ClusteringSession> {
+  const res = await fetch(`${BASE_URL}/clusters/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name,
+      method,
+      clusters: clusters.map((c) => ({
+        papers: c.papers,
+        topics: c.topics,
+      })),
+      total_papers: totalPapers,
+      outliers,
+    }),
+  });
+
+  if (!res.ok) {
+    let message = "Failed to save clustering result.";
+    try {
+      const data = await res.json();
+      if (data?.detail) message = data.detail;
+    } catch {}
+    throw new Error(message);
+  }
+
+  return res.json();
+}
+
+// get all saved clustering sessions
+export async function getSavedSessions(): Promise<ClusteringSession[]> {
+  const res = await fetch(`${BASE_URL}/clusters/sessions`);
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch saved sessions.");
+  }
+
+  return res.json();
+}
+
+// get a specific saved session
+export async function getSavedSession(sessionId: string): Promise<ClusteringSession> {
+  const res = await fetch(`${BASE_URL}/clusters/sessions/${sessionId}`);
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch session.");
+  }
+
+  return res.json();
+}
+
+// rename a clustering session
+export async function renameSession(sessionId: string, newName: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/clusters/sessions/${sessionId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ new_name: newName }),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to rename session.");
+  }
+}
+
+// rename a cluster within a session
+export async function renameCluster(
+  sessionId: string,
+  clusterId: string,
+  newName: string
+): Promise<void> {
+  const res = await fetch(
+    `${BASE_URL}/clusters/sessions/${sessionId}/clusters/${clusterId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ new_name: newName }),
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to rename cluster.");
+  }
+}
+
+// delete a saved session
+export async function deleteSession(sessionId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/clusters/sessions/${sessionId}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to delete session.");
+  }
 }
