@@ -98,3 +98,34 @@ def get_paper_chunks(
         })
     
     return chunks
+
+# extract text from specific sections of a paper
+def get_section_text(pdf_id: str, section_keywords: List[str]) -> str:
+    chunks = get_paper_chunks(pdf_id)
+    
+    matching_chunks = []
+    for chunk in chunks:
+        section = chunk.get("section", "").lower()
+        if any(kw.lower() in section for kw in section_keywords):
+            matching_chunks.append(chunk)
+    
+    # sort by chunk position
+    matching_chunks.sort(key=lambda x: x.get("id", ""))
+    
+    return "\n\n".join(c["text"] for c in matching_chunks)
+
+# get abstract of a paper
+def get_abstract(pdf_id: str) -> str:
+    return get_section_text(pdf_id, ["abstract", "summary"])
+
+# get the methodology section
+def get_methodology(pdf_id: str) -> str:
+    return get_section_text(pdf_id, ["method", "methodology", "materials", "procedure", "approach"])
+
+# get the results section
+def get_results(pdf_id: str) -> str:
+    return get_section_text(pdf_id, ["result", "finding", "outcome", "evaluation"])
+
+# get the conclusion section
+def get_conclusion(pdf_id: str) -> str:
+    return get_section_text(pdf_id, ["conclusion", "discussion", "summary"])
