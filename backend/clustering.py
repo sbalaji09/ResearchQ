@@ -413,3 +413,40 @@ def extract_cluster_topics_llm(
     )
     
     return response.choices[0].message.content.strip()
+
+# find papers most similar to a given paper by using cosine similarity
+def find_similar_papers(
+    pdf_id: str,
+    top_k: int = 5,
+    exclude_self: bool = True,
+) -> List[SimilarPaper]:
+    query_embedding = get_paper_embedding(pdf_id)
+    if query_embedding is None:
+        raise ValueError(f"Paper '{pdf_id}' not found in index")
+    
+    all_pdf_ids = get_all_pdf_ids()
+    if exclude_self and pdf_id in all_pdf_ids:
+        all_pdf_ids.remove(pdf_id)
+    
+    if not all_pdf_ids:
+        return []
+    
+    all_embeddings = get_all_paper_embeddings(all_pdf_ids)
+    
+    query_vec = query_embedding.embedding.reshape(1, -1)
+    other_vecs = np.array([pe.embedding for pe in all_embeddings])
+    
+    similarities = cosine_similarity(query_vec, other_vecs)[0]
+    
+    # create results
+    results = []
+    for i, pe in enumerate(all_embeddings):
+        results.append(SimilarPaper(
+            pdf_id=pe.pdf_id,
+            similarity_score=float(similarities[i]),
+        ))
+    
+    # sort by similarity and return top k
+    results.sort(key=lambda x: x.similarity_score, reverse=True)
+    
+    return results[:top_k]
