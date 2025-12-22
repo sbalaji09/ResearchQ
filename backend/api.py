@@ -570,3 +570,140 @@ async def ingest_folder(payload: FolderIngestRequest):
         file_count=len(pdf_files),
         message=f"Batch job started. Processing {len(pdf_files)} file(s) from folder."
     )
+
+# cluster papers to identify thematic groups
+@app.post("/literature-review/cluster", response_model=ClusterResponse)
+async def cluster_papers(payload: ClusterRequest):
+    try:
+        pdf_ids = payload.pdf_ids or get_all_pdf_ids()
+        
+        if len(pdf_ids) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Need at least 2 papers for clustering"
+            )
+        
+        params = payload.params or {}
+        
+        # Map method to parameters
+        if payload.method == "kmeans":
+            n_clusters = params.get("n_clusters", max(2, len(pdf_ids) // 3))
+            params = {"n_clusters": n_clusters}
+        elif payload.method == "hierarchical":
+            params = {
+                "n_clusters": params.get("n_clusters"),
+                "distance_threshold": params.get("distance_threshold", 0.5),
+            }
+        elif payload.method == "dbscan":
+            params = {
+                "eps": params.get("eps", 0.3),
+                "min_samples": params.get("min_samples", 2),
+            }
+        
+        result = analyze_paper_collection(
+            pdf_ids=pdf_ids,
+            clustering_method=payload.method,
+            extract_topics=True,
+            use_llm_summaries=False,
+            **params
+        )
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return ClusterResponse(
+            method=result["method"],
+            total_papers=result["total_papers"],
+            num_clusters=result["num_clusters"],
+            clusters=result["clusters"],
+            outliers=result.get("outliers"),
+        )
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Clustering failed: {str(e)}")
+
+# find papers similar to the specified paper
+@app.get("/literature-review/similar/{pdf_id}")
+async def get_similar_papers(pdf_id: str, top_k: int = 5):
+    try:
+        similar = find_similar_papers(pdf_id, top_k=top_k)
+        
+        return {
+            "query_paper": pdf_id,
+            "similar_papers": [
+                {
+                    "pdf_id": s.pdf_id,
+                    "similarity_score": round(s.similarity_score, 4),
+                }
+                for s in similar
+            ]
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Similarity search failed: {str(e)}")
+
+
+# compare 2-5 papers to identify similarities and differences
+@app.post("/literature-review/compare", response_model=CompareResponse)
+async def compare_papers_endpoint(payload: CompareRequest):
+    if len(payload.pdf_ids) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 papers to compare")
+    if len(payload.pdf_ids) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 papers can be compared at once")
+    
+    try:
+        result = compare_papers(payload.pdf_ids)
+        
+        return CompareResponse(
+            pdf_ids=result.pdf_ids,
+            similarities=result.similarities,
+            differences=result.differences,
+            key_themes=result.key_themes,
+            methodology_comparison=result.methodology_comparison,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
+
+# synthesize findings across multiple papers
+@app.post("/literature-review/synthesize", response_model=SynthesizeResponse)
+async def synthesize_papers(payload: SynthesizeRequest):
+    if not payload.pdf_ids:
+        raise HTTPException(status_code=400, detail="No papers provided")
+    
+    try:
+        result = synthesize_findings(
+            pdf_ids=payload.pdf_ids,
+            focus_question=payload.focus_question,
+        )
+        
+        return SynthesizeResponse(
+            synthesis=result.synthesis,
+            citations=result.citations,
+            methodology_comparison=result.methodology_comparison,
+            findings_comparison=result.findings_comparison,
+            papers_analyzed=result.papers_analyzed,
+            confidence=result.confidence,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Synthesis failed: {str(e)}")
+
+# summarize the methodology section of a paper
+@app.get("/literature-review/methodology/{pdf_id}")
+async def get_methodology_summary(pdf_id: str):
+    try:
+        result = extract_methodology_summary(pdf_id)
+        
+        if result.get("error"):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Could not extract methodology: {result['error']}"
+            )
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Methodology extraction failed: {str(e)}")
