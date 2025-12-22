@@ -191,3 +191,46 @@ DOMAIN_CONFIGS = {
     "general": DEFAULT_CONFIG,
     "default": DEFAULT_CONFIG,
 }
+
+def get_domain_config(domain: str) -> DomainConfig:
+    return DOMAIN_CONFIGS.get(domain.lower(), DEFAULT_CONFIG)
+
+def detect_domain(text: str) -> str:
+    text_lower = text.lower()
+
+    scores = {
+        "medical": 0,
+        "computer_science": 0,
+        "legal": 0,
+        "scientific": 0,
+    }
+
+    # medial indicators
+    medical_terms = ['patient', 'clinical', 'treatment', 'diagnosis', 'mg', 'dosage', 
+                     'adverse event', 'efficacy', 'placebo', 'randomized']
+    for term in medical_terms:
+        scores["medical"] += text_lower.count(term)
+
+    # CS indicators
+    cs_terms = ['algorithm', 'neural network', 'training', 'model', 'dataset',
+                'accuracy', 'benchmark', 'gpu', 'parameters', 'epoch']
+    for term in cs_terms:
+        scores["computer_science"] += text_lower.count(term)
+    
+    # Legal indicators
+    legal_terms = ['plaintiff', 'defendant', 'court', 'statute', 'ruling',
+                   'judgment', 'appeal', 'held', 'law', 'legal']
+    for term in legal_terms:
+        scores["legal"] += text_lower.count(term)
+    
+    # Scientific indicators
+    science_terms = ['experiment', 'hypothesis', 'measurement', 'concentration',
+                     'reaction', 'sample', 'specimen', 'laboratory']
+    for term in science_terms:
+        scores["scientific"] += text_lower.count(term)
+    
+    # return domain with the highest score or if they are all low, return general
+    max_domain = max(scores, key=scores.get)
+    if scores[max_domain] < 5:
+        return "general"
+    return max_domain
