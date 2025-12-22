@@ -19,6 +19,8 @@ def answer_generation(chunks: list[str], question: str, metadata: dict, conversa
         formatted_chunks = []
         sections = metadata.get('sections', [])
         documents = metadata.get('documents', [])
+        unique_docs = list(set(documents))
+        is_multi_doc = len(unique_docs) > 1
 
         citations = []
 
@@ -34,8 +36,15 @@ def answer_generation(chunks: list[str], question: str, metadata: dict, conversa
                 "text": chunk
             })
 
-            formatted_chunks.append(f"[{citation_id}] (Document: {doc_id}, Section: {section})\n{chunk}")
-
+            if is_multi_doc:
+                formatted_chunks.append(
+                    f"[{citation_id}] **Document: {doc_id}** | Section: {section}\n{chunk}"
+                )
+            else:
+                formatted_chunks.append(
+                    f"[{citation_id}] (Section: {section})\n{chunk}"
+                )
+                
         chunks_text = "\n\n---\n\n".join(formatted_chunks)
 
         # Generate prompts
