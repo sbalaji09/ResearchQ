@@ -129,3 +129,72 @@ def get_results(pdf_id: str) -> str:
 # get the conclusion section
 def get_conclusion(pdf_id: str) -> str:
     return get_section_text(pdf_id, ["conclusion", "discussion", "summary"])
+
+# extract and summarize the methodology section of a paper
+def extract_methodology_summary(pdf_id: str) -> Dict[str, Any]:
+    methodology_text = get_methodology(pdf_id)
+    
+    if not methodology_text or len(methodology_text) < 50:
+        return {
+            "pdf_id": pdf_id,
+            "summary": "Methodology section not found or too short.",
+            "research_design": None,
+            "participants": None,
+            "data_collection": None,
+            "analysis_method": None,
+            "error": "insufficient_content"
+        }
+    
+    # truncate if too long
+    if len(methodology_text) > 8000:
+        methodology_text = methodology_text[:8000] + "..."
+    
+    prompt = f"""Analyze this methodology section from a research paper and extract key information.
+
+        METHODOLOGY TEXT:
+        {methodology_text}
+
+        Provide a structured summary with these components (if available):
+        1. Research Design: (quantitative/qualitative/mixed, experimental/observational, etc.)
+        2. Participants/Sample: (who, how many, how selected)
+        3. Data Collection: (what data, how collected, instruments used)
+        4. Analysis Method: (statistical tests, qualitative coding, etc.)
+        5. Key Procedures: (main steps of the study)
+
+        Format your response as:
+        RESEARCH_DESIGN: [1-2 sentences]
+        PARTICIPANTS: [1-2 sentences]  
+        DATA_COLLECTION: [1-2 sentences]
+        ANALYSIS_METHOD: [1-2 sentences]
+        SUMMARY: [2-3 sentence overall summary]
+
+        If any component is not mentioned, write "Not specified" for that field."""
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=500,
+        temperature=0.3,
+    )
+    
+    result_text = response.choices[0].message.content.strip()
+    
+    # parse the response
+    def extract_field(text: str, field_name: str) -> Optional[str]:
+        import re
+        pattern = rf"{field_name}:\s*(.+?)(?=\n[A-Z_]+:|$)"
+        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+        if match:
+            value = match.group(1).strip()
+            return value if value.lower() != "not specified" else None
+        return None
+    
+    return {
+        "pdf_id": pdf_id,
+        "research_design": extract_field(result_text, "RESEARCH_DESIGN"),
+        "participants": extract_field(result_text, "PARTICIPANTS"),
+        "data_collection": extract_field(result_text, "DATA_COLLECTION"),
+        "analysis_method": extract_field(result_text, "ANALYSIS_METHOD"),
+        "summary": extract_field(result_text, "SUMMARY") or result_text,
+        "raw_text_length": len(methodology_text),
+    }
