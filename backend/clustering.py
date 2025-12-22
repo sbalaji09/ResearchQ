@@ -303,3 +303,57 @@ def cluster_papers_dbscan(
         ))
     
     return results, outliers
+
+# extract representative topics / keywords from a cluster using TF-IDF (terms that are frequent in this cluster, but distinguish it frmo other documents)
+def extract_cluster_topics_tfidf(
+    cluster: ClusterResult,
+    top_n: int = 5,
+) -> List[str]:
+    index_name = os.environ.get("PINECONE_INDEX_NAME")
+    index = pc.Index(index_name)
+    
+    cluster_texts = []
+    
+    for pdf_id in cluster.pdf_ids:
+        stats = index.describe_index_stats()
+        dummy_vector = [0.0] * stats.dimension
+        
+        results = index.query(
+            vector=dummy_vector,
+            top_k=1000,
+            include_metadata=True,
+            filter={"pdf_id": {"$eq": pdf_id}}
+        )
+        
+        # combine all chunk text
+        paper_text = " ".join(
+            m.metadata.get("text", "") 
+            for m in results.matches 
+            if m.metadata
+        )
+        cluster_texts.append(paper_text)
+    
+    if not cluster_texts:
+        return []
+    
+    vectorizer = TfidfVectorizer(
+        max_features=1000,
+        stop_words="english",
+        ngram_range=(1, 2),  # Include bigrams like "neural network"
+        min_df=1,
+        max_df=0.95,
+    )
+    
+    try:
+        tfidf_matrix = vectorizer.fit_transform(cluster_texts)
+    except ValueError:
+        return []
+    
+    mean_tfidf = np.array(tfidf_matrix.mean(axis=0)).flatten()
+    
+    feature_names = vectorizer.get_feature_names_out()
+    top_indices = mean_tfidf.argsort()[-top_n:][::-1]
+    
+    topics = [feature_names[i] for i in top_indices]
+    
+    return topics
