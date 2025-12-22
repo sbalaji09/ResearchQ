@@ -9,6 +9,7 @@ from retrieval import (
     detect_question_type,
     compute_bm25_score,
     expand_query,
+    is_cross_document_query,
 )
 
 from exceptions import NoRelevantChunksError, LowRelevanceError, RetrievalError, GenerationError
@@ -120,6 +121,14 @@ def query_with_section_boost(
 
     # Step 4: Re-rank by final score
     scored_results.sort(key=lambda x: x['final_score'], reverse=True)
+
+    if is_cross_document_query(question) and pdf_ids and len(pdf_ids) > 1:
+        scored_results = balance_results_across_documents(
+            scored_results,
+            pdf_ids,
+            min_per_doc=2,
+            top_k=top_k
+        )
 
     # Step 5: Optional cross-encoder reranking
     if use_reranking and len(scored_results) > 0:
@@ -302,6 +311,38 @@ def get_embedding_cached(text: str) -> list:
     
     return embedding_cache.get_or_compute(text, compute)
 
+# ensure cross-document queries get results from each document
+def balance_results_across_documents(
+    results: list, 
+    pdf_ids: list[str], 
+    min_per_doc: int = 2,
+    top_k: int = 10
+) -> list:
+    
+    # group results by document
+    by_doc = {}
+    for r in results:
+        doc_id = r.get('metadata', {}).get('pdf_id', 'unknown')
+        if doc_id not in by_doc:
+            by_doc[doc_id] = []
+        by_doc[doc_id].append(r)
+    
+    balanced = []
+    remaining = []
+    
+    for doc_id in pdf_ids:
+        if doc_id in by_doc:
+            doc_results = by_doc[doc_id]
+            balanced.extend(doc_results[:min_per_doc])
+            remaining.extend(doc_results[min_per_doc:])
+    
+    remaining.sort(key=lambda x: x['final_score'], reverse=True)
+    balanced.extend(remaining[:max(0, top_k - len(balanced))])
+    
+    # final sort by score
+    balanced.sort(key=lambda x: x['final_score'], reverse=True)
+    
+    return balanced[:top_k]
 
 def main():
     """Test retrieval with improved pipeline"""
