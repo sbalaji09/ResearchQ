@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +13,20 @@ from conversation import conversation_store, Conversation
 from rate_limit import rate_limiter
 from cache import embedding_cache, rate_limiter
 from batch_processor import batch_job_store, process_batch
+
+from literature_review import (
+    compare_papers,
+    synthesize_findings,
+    analyze_literature,
+    extract_methodology_summary,
+    generate_review_report,
+)
+
+from clustering import (
+    find_similar_papers,
+    analyze_paper_collection,
+    get_all_pdf_ids,
+)
 
 from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / ".env"
@@ -131,6 +145,49 @@ class BatchJobStatus(BaseModel):
 class FolderIngestRequest(BaseModel):
     folder_path: str
     domain: Optional[str] = None
+
+class ClusterRequest(BaseModel):
+    pdf_ids: Optional[List[str]] = None
+    method: str = "hierarchical"
+    params: Optional[Dict[str, Any]] = None
+
+class ClusterResponse(BaseModel):
+    method: str
+    total_papers: int
+    num_clusters: int
+    clusters: List[Dict[str, Any]]
+    outliers: Optional[List[str]] = None
+
+class SimilarPaperResponse(BaseModel):
+    pdf_id: str
+    similarity_score: float
+
+class CompareRequest(BaseModel):
+    pdf_ids: List[str]  # 2-5 papers
+
+class CompareResponse(BaseModel):
+    pdf_ids: List[str]
+    similarities: List[str]
+    differences: List[str]
+    key_themes: List[str]
+    methodology_comparison: Optional[str] = None
+
+class SynthesizeRequest(BaseModel):
+    pdf_ids: List[str]
+    focus_question: Optional[str] = None
+
+class SynthesizeResponse(BaseModel):
+    synthesis: str
+    citations: List[Dict[str, Any]]
+    methodology_comparison: Optional[str] = None
+    findings_comparison: Optional[str] = None
+    papers_analyzed: List[str]
+    confidence: str
+
+class ReviewRequest(BaseModel):
+    pdf_ids: List[str]
+    title: Optional[str] = None
+    format: str = "markdown"  # "markdown" or "json"
 
 # ---------------- Routes ----------------
 
