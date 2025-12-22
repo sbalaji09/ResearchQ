@@ -329,3 +329,15 @@ async def get_rate_limit_stats(request: Request):
 async def clear_cache():
   embedding_cache.clear()
   return {"status": "success", "message": "Cache cleared"}
+
+@app.post("/batch/upload")
+async def upload_batch():
+  pass
+
+@app.get("/batch/{job_id}/status")
+async def get_job_status():
+  pass
+
+@app.post("/batch/ingest-folder")
+async def ingest_folder():
+  pass
