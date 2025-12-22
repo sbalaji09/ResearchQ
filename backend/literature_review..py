@@ -550,3 +550,46 @@ def generate_review_report(
         references=references,
         format=format,
     )
+
+def analyze_literature(
+    pdf_ids: List[str],
+    analysis_type: str = "synthesis",
+    focus_question: Optional[str] = None,
+    output_format: str = "json",
+) -> Dict[str, Any]:
+    """
+    Main entry point for literature analysis.
+    
+    Args:
+        pdf_ids: Papers to analyze
+        analysis_type: Type of analysis ("compare", "synthesis", "review")
+        focus_question: Optional question to focus the analysis
+        output_format: "json" or "markdown"
+        
+    Returns:
+        Analysis results as a dictionary
+    """
+    if analysis_type == "compare":
+        result = compare_papers(pdf_ids)
+        return {
+            "type": "comparison",
+            "pdf_ids": result.pdf_ids,
+            "similarities": result.similarities,
+            "differences": result.differences,
+            "key_themes": result.key_themes,
+            "methodology_comparison": result.methodology_comparison,
+        }
+    
+    elif analysis_type == "synthesis":
+        result = synthesize_findings(pdf_ids, focus_question)
+        return {
+            "type": "synthesis",
+            "synthesis": result.synthesis,
+            "citations": result.citations,
+            "methodology_comparison": result.methodology_comparison,
+            "findings_comparison": result.findings_comparison,
+            "papers_analyzed": result.papers_analyzed,
+            "confidence": result.confidence,
+        }
+    else:
+        raise ValueError(f"Unknown analysis type: {analysis_type}")
