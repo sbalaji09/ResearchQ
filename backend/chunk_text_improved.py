@@ -674,7 +674,7 @@ def compare_chunking_strategies(text: str, document_id: str = "test") -> Dict:
 # QUERY-AWARE CHUNKING ENHANCEMENT
 # =============================================================================
 
-def create_question_focused_chunks(chunks: List[Chunk]) -> List[Chunk]:
+def create_question_focused_chunks(chunks: List[Chunk], domain_config: DomainConfig = None) -> List[Chunk]:
     """
     Create additional chunks optimized for common question types
     
@@ -688,6 +688,11 @@ def create_question_focused_chunks(chunks: List[Chunk]) -> List[Chunk]:
     This creates synthetic chunks that directly answer these.
     """
     enhanced_chunks = list(chunks)
+
+    if domain_config and domain_config.synthetic_sections:
+        target_sections = domain_config.synthetic_sections
+    else:
+        target_sections = ['Results', 'Conclusion', 'Methods']
     
     # Group chunks by section
     section_chunks = {}
@@ -697,36 +702,19 @@ def create_question_focused_chunks(chunks: List[Chunk]) -> List[Chunk]:
             section_chunks[section] = []
         section_chunks[section].append(chunk)
     
-    # Create combined "key findings" chunk from Results + Conclusion
-    results_text = []
-    for section in ['Results', 'Results and Discussion', 'Conclusion', 'Discussion']:
-        if section in section_chunks:
-            for chunk in section_chunks[section][:2]:  # First 2 chunks
-                results_text.append(chunk.text)
-    
-    if results_text:
-        enhanced_chunks.append(Chunk(
-            text=' '.join(results_text)[:2000],
-            metadata={
-                'chunk_id': 'synthetic_key_findings',
-                'section': 'Key Findings',
-                'chunk_type': 'synthetic',
-                'token_count': len(' '.join(results_text).split()),
-            }
-        ))
-    
-    # Create "methodology summary" chunk
-    if 'Methods' in section_chunks:
-        methods_text = ' '.join([c.text for c in section_chunks['Methods'][:2]])
-        enhanced_chunks.append(Chunk(
-            text=methods_text[:1500],
-            metadata={
-                'chunk_id': 'synthetic_methods',
-                'section': 'Methods Summary',
-                'chunk_type': 'synthetic',
-                'token_count': len(methods_text.split()),
-            }
-        ))
+    for section_name in target_sections:
+        if section_name in section_chunks:
+            section_text = ' '.join([c.text for c in section_chunks[section_name][:3]])
+            enhanced_chunks.append(Chunk(
+                text=section_text[:2000],
+                metadata={
+                    'chunk_id': 'synthetic_key_findings',
+                    'section': 'Key Findings',
+                    'chunk_type': 'synthetic',
+                    'token_count': len(section_text.split()),
+                    'domain': domain_config.name if domain_config else 'general',
+                }
+            ))
     
     return enhanced_chunks
 
