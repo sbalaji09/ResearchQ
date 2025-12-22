@@ -9,7 +9,7 @@ from embeddings import embed_chunks, store_in_pinecone
 import os
 
 
-def ingest_paper(pdf_path: Path, pdf_id: str, clear_existing: bool = False):
+def ingest_paper(pdf_path: Path, pdf_id: str, clear_existing: bool = False, domain: str = None):
     """
     Complete pipeline to ingest a research paper
 
@@ -50,12 +50,12 @@ def ingest_paper(pdf_path: Path, pdf_id: str, clear_existing: bool = False):
 
     # Use hierarchical strategy for best retrieval
     chunk_objects = chunk_document(
-        text=full_text,
+        full_text,
         document_id=pdf_id,
-        strategy="hierarchical",  # Section-aware, multi-level chunks
-        chunk_size=400,            # Optimal: enough context, still focused
-        overlap=3,                 # More overlap for continuity
-        add_synthetic=True,        # Add synthetic summary chunks
+        strategy="hierarchical",
+        add_synthetic=True,
+        domain=domain,  # Pass domain
+        auto_detect_domain=(domain is None),  # Auto-detect if not specified
     )
 
     print(f"✓ Created {len(chunk_objects)} chunks")

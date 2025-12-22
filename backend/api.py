@@ -99,6 +99,9 @@ class ConversationInfo(BaseModel):
   message_count: int
   created_at: str
   last_active: str
+
+class UploadRequest(BaseModel):
+    domain: Optional[str] = None
 # ---------------- Routes ----------------
 
 @app.get("/")
@@ -107,7 +110,7 @@ async def root():
 
 # accepts a single PDF file and saves it to the backend/test_papers
 @app.post("/upload", response_model=UploadResponse)
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_pdf(file: UploadFile = File(...), domain: Optional[str] = None):
   if file.content_type not in ("application/pdf", "application/x-pdf"):
     raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
 
@@ -125,7 +128,7 @@ async def upload_pdf(file: UploadFile = File(...)):
     
     dest_path.write_bytes(file_bytes)
 
-    ingest_paper(dest_path, pdf_id=safe_filename.replace(".pdf", ""), clear_existing=False)
+    ingest_paper(dest_path, pdf_id=safe_filename.replace(".pdf", ""), clear_existing=False, domain=domain)
   except HTTPException:
     raise
   except Exception as e:
