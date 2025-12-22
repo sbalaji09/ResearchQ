@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
 import re
-
+from domain_config import get_domain_config, detect_domain, DomainConfig
 
 @dataclass
 class Chunk:
@@ -83,6 +83,15 @@ SECTION_PATTERNS = [
 # Sections to skip or handle specially (they hurt retrieval)
 SKIP_SECTIONS = {'References', 'Bibliography', 'Acknowledgements', 'Appendix'}
 
+# gets section patterns with optional domain-specific additions
+def get_section_patterns(domain_config: DomainConfig = None):
+    patterns = list(SECTION_PATTERNS)  # Base patterns
+    
+    if domain_config and domain_config.section_patterns:
+        # Add domain-specific patterns at the beginning (higher priority)
+        patterns = domain_config.section_patterns + patterns
+    
+    return patterns
 
 def detect_section(line: str) -> Optional[str]:
     """Detect if a line is a section header"""
@@ -118,12 +127,18 @@ def detect_subsection(line: str) -> Optional[str]:
     return None
 
 
-def split_into_sections(text: str) -> List[Tuple[str, str]]:
+def split_into_sections(text: str, domain_config: DomainConfig) -> List[Tuple[str, str]]:
     """
     Split document into sections with their headers
     
     Returns: List of (section_name, section_text) tuples
     """
+    patterns = get_section_patterns(domain_config)
+    skip_sections = SKIP_SECTIONS.copy()
+    
+    if domain_config:
+        skip_sections.update(domain_config.skip_sections)
+
     lines = text.split('\n')
     sections = []
     current_section = "Preamble"  # Content before first detected section
