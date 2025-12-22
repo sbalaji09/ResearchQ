@@ -103,6 +103,35 @@ class ConversationInfo(BaseModel):
 
 class UploadRequest(BaseModel):
     domain: Optional[str] = None
+
+class BatchUploadResponse(BaseModel):
+    job_id: str
+    status: str
+    file_count: int
+    message: str
+
+class BatchJobResult(BaseModel):
+    pdf_path: str
+    pdf_id: str
+    status: str
+    error: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+
+class BatchJobStatus(BaseModel):
+    job_id: str
+    status: str
+    progress: str
+    pdf_paths: List[str]
+    results: List[BatchJobResult]
+    created_at: str
+    completed_at: Optional[str] = None
+    domain: Optional[str] = None
+
+class FolderIngestRequest(BaseModel):
+    folder_path: str
+    domain: Optional[str] = None
+
 # ---------------- Routes ----------------
 
 @app.get("/")
@@ -331,14 +360,156 @@ async def clear_cache():
   embedding_cache.clear()
   return {"status": "success", "message": "Cache cleared"}
 
-@app.post("/batch/upload")
-async def upload_batch():
-  pass
+@app.post("/batch/upload", response_model=BatchUploadResponse)
+async def upload_batch(
+    files: List[UploadFile] = File(...),
+    domain: Optional[str] = None
+):
+    """
+    Upload multiple PDF files for batch processing.
+    Returns a job_id that can be used to track progress.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
 
-@app.get("/batch/{job_id}/status")
-async def get_job_status():
-  pass
+    # Validate all files are PDFs
+    for f in files:
+        if f.content_type not in ("application/pdf", "application/x-pdf"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{f.filename}' is not a PDF. Only PDF files are allowed."
+            )
 
-@app.post("/batch/ingest-folder")
-async def ingest_folder():
-  pass
+    # Save files to disk and collect paths
+    saved_paths: List[Path] = []
+    try:
+        for f in files:
+            file_bytes = await f.read()
+
+            if len(file_bytes) > 50 * 1024 * 1024:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File '{f.filename}' is too large. Maximum size is 50MB."
+                )
+
+            if not file_bytes.startswith(b'%PDF'):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File '{f.filename}' is not a valid PDF."
+                )
+
+            safe_filename = f.filename.replace(" ", "_")
+            dest_path = TEST_PAPERS_DIR / safe_filename
+            dest_path.write_bytes(file_bytes)
+            saved_paths.append(dest_path)
+
+    except HTTPException:
+        # Clean up any saved files on validation error
+        for p in saved_paths:
+            if p.exists():
+                p.unlink()
+        raise
+
+    # Start batch processing in background
+    job_id = process_batch(
+        pdf_paths=saved_paths,
+        ingest_paper=ingest_paper,
+        store=batch_job_store,
+        domain=domain,
+    )
+
+    return BatchUploadResponse(
+        job_id=job_id,
+        status="pending",
+        file_count=len(saved_paths),
+        message=f"Batch job started. Processing {len(saved_paths)} file(s)."
+    )
+
+
+@app.get("/batch/{job_id}/status", response_model=BatchJobStatus)
+async def get_job_status(job_id: str):
+    """
+    Get the current status and progress of a batch job.
+    """
+    job = batch_job_store.get_job(job_id)
+
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+
+    # Convert results to BatchJobResult format (exclude traceback for cleaner response)
+    results = [
+        BatchJobResult(
+            pdf_path=r["pdf_path"],
+            pdf_id=r.get("pdf_id", Path(r["pdf_path"]).stem),
+            status=r["status"],
+            error=r.get("error"),
+            started_at=r.get("started_at"),
+            completed_at=r.get("completed_at"),
+        )
+        for r in job.results
+    ]
+
+    return BatchJobStatus(
+        job_id=job.job_id,
+        status=job.status,
+        progress=job.progress,
+        pdf_paths=job.pdf_paths,
+        results=results,
+        created_at=job.created_at,
+        completed_at=job.completed_at,
+        domain=job.domain,
+    )
+
+
+@app.get("/batch/jobs")
+async def list_batch_jobs():
+    """
+    List all batch jobs (newest first).
+    """
+    jobs = batch_job_store.list_jobs()
+    return [job.to_dict() for job in jobs]
+
+
+@app.post("/batch/ingest-folder", response_model=BatchUploadResponse)
+async def ingest_folder(payload: FolderIngestRequest):
+    """
+    Start batch ingestion of all PDFs in a local folder.
+    The folder path must be accessible from the server.
+    """
+    folder_path = Path(payload.folder_path)
+
+    if not folder_path.exists():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Folder '{payload.folder_path}' does not exist"
+        )
+
+    if not folder_path.is_dir():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path '{payload.folder_path}' is not a directory"
+        )
+
+    # Find all PDF files in the folder
+    pdf_files = list(folder_path.glob("*.pdf"))
+
+    if not pdf_files:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No PDF files found in '{payload.folder_path}'"
+        )
+
+    # Start batch processing in background
+    job_id = process_batch(
+        pdf_paths=pdf_files,
+        ingest_paper=ingest_paper,
+        store=batch_job_store,
+        domain=payload.domain,
+    )
+
+    return BatchUploadResponse(
+        job_id=job_id,
+        status="pending",
+        file_count=len(pdf_files),
+        message=f"Batch job started. Processing {len(pdf_files)} file(s) from folder."
+    )
