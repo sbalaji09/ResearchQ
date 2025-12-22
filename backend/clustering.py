@@ -450,3 +450,19 @@ def find_similar_papers(
     results.sort(key=lambda x: x.similarity_score, reverse=True)
     
     return results[:top_k]
+
+# builds a pairwise similarity matrix for all papers
+def build_similarity_matrix(pdf_ids: List[str]) -> Tuple[np.ndarray, List[str]]:
+    embeddings = get_all_paper_embeddings(pdf_ids)
+    
+    if not embeddings:
+        return np.array([]), []
+    
+    # build matrix
+    X = np.array([pe.embedding for pe in embeddings])
+    ordered_ids = [pe.pdf_id for pe in embeddings]
+    
+    # compute pairwise similarities
+    sim_matrix = cosine_similarity(X)
+    
+    return sim_matrix, ordered_ids
