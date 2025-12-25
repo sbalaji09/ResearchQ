@@ -1,16 +1,7 @@
 import re
-from dotenv import load_dotenv
-from openai import OpenAI
-import os
-from pathlib import Path
-
 from prompt import generate_system_prompt, generate_user_prompt
 from cache import detect_query_complexity, get_model_for_complexity
-
-env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(env_path)
-
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+from llm_provider import chat_completion
 
 
 def answer_generation(chunks: list[str], question: str, metadata: dict, conversation_history: list = None) -> dict:
@@ -59,17 +50,15 @@ def answer_generation(chunks: list[str], question: str, metadata: dict, conversa
         complexity = detect_query_complexity(question)
         model_config = get_model_for_complexity(complexity)
 
-        response = client.chat.completions.create(
-            model=model_config["model"],
+        answer_text = chat_completion(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            model=model_config["model"],
             temperature=model_config["temperature"],
-            max_completion_tokens=model_config["max_tokens"],
+            max_tokens=model_config["max_tokens"],
         )
-
-        answer_text = response.choices[0].message.content
 
         if not answer_text or not answer_text.strip():
             return {

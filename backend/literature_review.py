@@ -4,17 +4,16 @@ from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, field
 from collections import defaultdict
 
-from openai import OpenAI
 from pinecone import Pinecone
 from dotenv import load_dotenv
 from query_improved import query_with_section_boost
+from llm_provider import chat_completion
 import re
 
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # result of comparing multiple papers
 @dataclass
@@ -144,14 +143,12 @@ def extract_methodology_summary(pdf_id: str) -> Dict[str, Any]:
 
         If any component is not mentioned, write "Not specified" for that field."""
 
-    response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
+    result_text = chat_completion(
         messages=[{"role": "user", "content": prompt}],
+        model="gpt-4o-mini",
         max_tokens=500,
         temperature=0.3,
-    )
-    
-    result_text = response.choices[0].message.content.strip()
+    ).strip()
     
     # parse the response
     def extract_field(text: str, field_name: str) -> Optional[str]:
@@ -224,14 +221,12 @@ def compare_papers(pdf_ids: List[str]) -> ComparisonResult:
 
         Be specific and cite which papers you're referring to when noting differences."""
 
-    response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
+    result_text = chat_completion(
         messages=[{"role": "user", "content": prompt}],
+        model="gpt-4o-mini",
         max_tokens=1000,
         temperature=0.4,
-    )
-    
-    result_text = response.choices[0].message.content.strip()
+    ).strip()
     
     # parse the response
     def extract_list(text: str, section_name: str) -> List[str]:
@@ -336,14 +331,12 @@ def synthesize_findings(
 
         Write a well-organized synthesis that a researcher could use to understand the collective insights from these papers."""
 
-    response = openai_client.chat.completions.create(
-        model="gpt-4o",  # Use stronger model for synthesis
+    synthesis_text = chat_completion(
         messages=[{"role": "user", "content": synthesis_prompt}],
+        model="gpt-4o",  # Use stronger model for synthesis
         max_tokens=1500,
         temperature=0.4,
-    )
-    
-    synthesis_text = response.choices[0].message.content.strip()
+    ).strip()
     
     # findings comparison
     findings_prompt = f"""Based on these paper excerpts, create a brief comparison of the key findings:
@@ -355,14 +348,12 @@ def synthesize_findings(
         - How findings agree or disagree
         - Overall pattern of results"""
 
-    findings_response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
+    findings_comparison = chat_completion(
         messages=[{"role": "user", "content": findings_prompt}],
+        model="gpt-4o-mini",
         max_tokens=500,
         temperature=0.3,
-    )
-    
-    findings_comparison = findings_response.choices[0].message.content.strip()
+    ).strip()
     
     return SynthesisResult(
         synthesis=synthesis_text,
