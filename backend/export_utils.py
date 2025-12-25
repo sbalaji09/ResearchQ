@@ -1,6 +1,6 @@
 import re
 from typing import Optional
-from backend.literature_review_generator import LiteratureReviewResult
+from literature_review_generator import LiteratureReviewResult
 
 
 # export literature review to markdown format

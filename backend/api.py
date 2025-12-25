@@ -8,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pinecone import Pinecone
 
-from backend.export_utils import *
-from backend.literature_review_generator import LiteratureReviewResult, generate_literature_review
+from export_utils import export_to_markdown, export_to_latex, export_to_word
+from literature_review_generator import LiteratureReviewResult, generate_literature_review
 from ingest_paper import ingest_paper
 from query_improved import content_generator
 from conversation import conversation_store, Conversation
@@ -230,6 +230,11 @@ class GenerateReviewRequest(BaseModel):
     topic: Optional[str] = None
     citation_style: str = "apa"
 
+class ReferenceItem(BaseModel):
+    index: int
+    pdf_id: str
+    formatted: str
+
 class LiteratureReviewResponse(BaseModel):
     title: str
     introduction: str
@@ -237,8 +242,10 @@ class LiteratureReviewResponse(BaseModel):
     key_findings: str
     research_gaps: str
     conclusion: str
-    references: List[str]
+    references: List[ReferenceItem]
+    papers_analyzed: List[str]
     citation_style: str
+    created_at: str
 
 # ---------------- Routes ----------------
 
@@ -937,34 +944,89 @@ async def delete_session(session_id: str):
 
     raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
 
-@app.post("/literature-review/generate")
-async def generate_review(session_id: str, payload: GenerateReviewRequest):
-    session = cluster_store.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
-    
-    review = generate_literature_review(payload.pdf_ids, payload.topic, payload.citation_style)
+@app.post("/literature-review/generate", response_model=LiteratureReviewResponse)
+async def generate_review(payload: GenerateReviewRequest):
+    """Generate a literature review from selected papers."""
+    if len(payload.pdf_ids) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 papers to generate a literature review")
 
-    return LiteratureReviewResponse(
-       title=review.title,
-       introduction=review.introduction,
-       methodology_overview=review.methodology_overview,
-       key_findings=review.key_findings,
-       research_gaps=review.research_gaps,
-       conclusion=review.conclusion,
-       references=review.references,
-       citation_style=review.citation_style
-    )
+    if len(payload.pdf_ids) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 papers can be reviewed at once")
+
+    try:
+        review = generate_literature_review(
+            pdf_ids=payload.pdf_ids,
+            topic=payload.topic,
+            citation_style=payload.citation_style
+        )
+
+        return LiteratureReviewResponse(
+            title=review.title,
+            introduction=review.introduction,
+            methodology_overview=review.methodology_overview,
+            key_findings=review.key_findings,
+            research_gaps=review.research_gaps,
+            conclusion=review.conclusion,
+            references=[
+                ReferenceItem(index=r["index"], pdf_id=r["pdf_id"], formatted=r["formatted"])
+                for r in review.references
+            ],
+            papers_analyzed=review.papers_analyzed,
+            citation_style=review.citation_style,
+            created_at=review.created_at,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate literature review: {str(e)}")
+
+
+class ExportReviewRequest(BaseModel):
+    format: str  # "markdown", "latex", or "docx"
+    review: Dict[str, Any]
+
 
 @app.post("/literature-review/export")
-async def export_review(session_id: str, format: str, review: LiteratureReviewResult):
-    session = cluster_store.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+async def export_review(payload: ExportReviewRequest):
+    """Export a literature review to the specified format."""
+    from fastapi.responses import Response
 
-    if format == "latex":
-       return export_to_latex(review)
-    elif format == "markdown" or format == "md":
-       return export_to_markdown(review)
-    elif format == "docx":
-       return export_to_word(review)
+    # Convert dict back to LiteratureReviewResult
+    try:
+        review = LiteratureReviewResult(
+            title=payload.review.get("title", ""),
+            introduction=payload.review.get("introduction", ""),
+            methodology_overview=payload.review.get("methodology_overview", ""),
+            key_findings=payload.review.get("key_findings", ""),
+            research_gaps=payload.review.get("research_gaps", ""),
+            conclusion=payload.review.get("conclusion", ""),
+            references=payload.review.get("references", []),
+            papers_analyzed=payload.review.get("papers_analyzed", []),
+            citation_style=payload.review.get("citation_style", "apa"),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid review data: {str(e)}")
+
+    export_format = payload.format.lower()
+
+    if export_format == "latex" or export_format == "tex":
+        content = export_to_latex(review)
+        return Response(
+            content=content,
+            media_type="application/x-latex",
+            headers={"Content-Disposition": "attachment; filename=literature_review.tex"}
+        )
+    elif export_format == "markdown" or export_format == "md":
+        content = export_to_markdown(review)
+        return Response(
+            content=content,
+            media_type="text/markdown",
+            headers={"Content-Disposition": "attachment; filename=literature_review.md"}
+        )
+    elif export_format == "docx" or export_format == "word":
+        content = export_to_word(review)
+        return Response(
+            content=content,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": "attachment; filename=literature_review.docx"}
+        )
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {payload.format}. Use 'markdown', 'latex', or 'docx'.")

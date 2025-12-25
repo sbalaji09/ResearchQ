@@ -367,6 +367,12 @@ export async function deleteSession(sessionId: string): Promise<void> {
   }
 }
 
+export interface ReferenceItem {
+  index: number;
+  pdf_id: string;
+  formatted: string;
+}
+
 export interface LiteratureReviewResult {
   title: string;
   introduction: string;
@@ -374,26 +380,24 @@ export interface LiteratureReviewResult {
   key_findings: string;
   research_gaps: string;
   conclusion: string;
-  references: Array<{
-    authors: string[];
-    title: string;
-    year: number | string;
-  }>;
+  references: ReferenceItem[];
+  papers_analyzed: string[];
+  citation_style: string;
+  created_at: string;
 }
 
 // generate a literature review from selected papers
 export async function generateLiteratureReview(
-  sessionId: string,
   pdfIds: string[],
-  title?: string,
-  citationStyle?: string
+  topic?: string,
+  citationStyle: string = "apa"
 ): Promise<LiteratureReviewResult> {
-  const res = await fetch(`${BASE_URL}/literature-review/generate/${sessionId}`, {
+  const res = await fetch(`${BASE_URL}/literature-review/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       pdf_ids: pdfIds,
-      title: title,
+      topic: topic,
       citation_style: citationStyle,
     }),
   });
@@ -412,16 +416,15 @@ export async function generateLiteratureReview(
 
 // export literature review in specified format
 export async function exportLiteratureReview(
-  sessionId: string,
   format: 'markdown' | 'latex' | 'docx',
   reviewData: LiteratureReviewResult
 ): Promise<Blob> {
-  const res = await fetch(`${BASE_URL}/literature-review/export/${sessionId}`, {
+  const res = await fetch(`${BASE_URL}/literature-review/export`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       format: format,
-      review_data: reviewData,
+      review: reviewData,
     }),
   });
 
