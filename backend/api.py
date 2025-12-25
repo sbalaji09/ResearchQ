@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -7,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pinecone import Pinecone
 
+from backend.literature_review_generator import generate_literature_review
 from ingest_paper import ingest_paper
 from query_improved import content_generator
 from conversation import conversation_store, Conversation
@@ -224,7 +226,7 @@ class ClusteringSessionResponse(BaseModel):
 
 class GenerateReviewRequest(BaseModel):
     pdf_ids: List[str]
-    title: Optional[str] = None
+    topic: Optional[str] = None
     citation_style: str = "apa"
 
 class LiteratureReviewResponse(BaseModel):
@@ -933,3 +935,26 @@ async def delete_session(session_id: str):
         return {"status": "success", "message": f"Session '{session_id}' deleted"}
 
     raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+
+@app.post("/literature-review/generate")
+async def generate_review(session_id: str, payload: GenerateReviewRequest):
+    session = cluster_store.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+    
+    review = generate_literature_review(payload.pdf_ids, payload.topic, payload.citation_style)
+
+    return LiteratureReviewResponse(
+       title=review.title,
+       introduction=review.introduction,
+       methodology_overview=review.methodology_overview,
+       key_findings=review.key_findings,
+       research_gaps=review.research_gaps,
+       conclusion=review.conclusion,
+       references=review.references,
+       citation_style=review.citation_style
+    )
+
+@app.post("/literature-review/export")
+async def export_review(session_id: str, format: str):
+   pass
