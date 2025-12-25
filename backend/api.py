@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pinecone import Pinecone
 
-from backend.literature_review_generator import generate_literature_review
+from backend.export_utils import *
+from backend.literature_review_generator import LiteratureReviewResult, generate_literature_review
 from ingest_paper import ingest_paper
 from query_improved import content_generator
 from conversation import conversation_store, Conversation
@@ -956,5 +957,14 @@ async def generate_review(session_id: str, payload: GenerateReviewRequest):
     )
 
 @app.post("/literature-review/export")
-async def export_review(session_id: str, format: str):
-   pass
+async def export_review(session_id: str, format: str, review: LiteratureReviewResult):
+    session = cluster_store.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+
+    if format == "latex":
+       return export_to_latex(review)
+    elif format == "markdown" or format == "md":
+       return export_to_markdown(review)
+    elif format == "docx":
+       return export_to_word(review)
