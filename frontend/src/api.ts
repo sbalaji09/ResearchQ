@@ -366,3 +366,26 @@ export async function deleteSession(sessionId: string): Promise<void> {
     throw new Error("Failed to delete session.");
   }
 }
+
+export async function generateLiteratureReview(sessionId: string, pdfIds: string[], title?: string, citationStyle?: string) {
+  const res = await fetch(`${BASE_URL}/literature-review/generate/${sessionId}`, {
+    method: "POST",
+    body: JSON.stringify({ pdfIds: pdfIds, title: title, citationStyle: citationStyle }),
+  });
+  
+
+  if (!res.ok) {
+    throw new Error("Failed to delete session.");
+  }
+}
+
+export async function exportLiteratureReview(sessionId: string, format: 'markdown' | 'latex' | 'docx', reviewData: object) {
+  const res = await fetch(`${BASE_URL}/literature-review/export/${sessionId}`, {
+    method: "POST",
+    body: JSON.stringify({ format: format, reviewData: reviewData}),
+  });
+  
+  if (!res.ok) {
+    throw new Error("Failed to delete session.");
+  }
+}
