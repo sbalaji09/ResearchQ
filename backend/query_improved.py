@@ -1,4 +1,5 @@
 import re
+from openai import OpenAI
 import os
 from pinecone import Pinecone
 from dotenv import load_dotenv
@@ -13,7 +14,7 @@ from retrieval import (
 
 from exceptions import NoRelevantChunksError, LowRelevanceError, RetrievalError, GenerationError
 from cache import embedding_cache, detect_query_complexity, get_model_for_complexity
-from llm_provider import get_embedding
+import re
 
 _cross_encoder = None
 
@@ -39,6 +40,7 @@ RERANK_CANDIDATES = 20
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 
 # query with section-aware boosting and optional reranking for better precision
@@ -298,7 +300,11 @@ def print_results(question: str, results: list, show_scores: bool = True):
 # get embedding with caching
 def get_embedding_cached(text: str) -> list:
     def compute():
-        return get_embedding(text.strip())
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=text.strip()
+        )
+        return response.data[0].embedding
 
     return embedding_cache.get_or_compute(text, compute)
 

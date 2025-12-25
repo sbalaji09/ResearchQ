@@ -1,21 +1,31 @@
-# calls embedding provider to convert text chunks into embeddings where each vector is stored in Pinecone with metadata
+# calls openai's to convert text chunks into embeddings where each vector is stored in Pinecone with metadata
+from openai import OpenAI
 import os
-from pinecone import Pinecone
+from pinecone import Pinecone, ServerlessSpec
 from dotenv import load_dotenv
 from pathlib import Path
-from llm_provider import get_embedding as provider_get_embedding, get_embeddings_batch
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 
 # gets the embedding for one piece of text
 def get_embedding(text: str):
-    return provider_get_embedding(text)
+    cleaned_text = text.strip()
+    if not cleaned_text:
+        return []
 
-# embeds chunks of data using the configured embedding provider
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=cleaned_text
+    )
+
+    return response.data[0].embedding
+
+# embeds chunks of data using OpenAI embedding model
 def embed_chunks(chunks: list[str], metadata: list[dict], batch_size: int = 64):
     if len(chunks) != len(metadata):
         return
@@ -27,11 +37,16 @@ def embed_chunks(chunks: list[str], metadata: list[dict], batch_size: int = 64):
         batch_chunks = chunks[start: end]
         batch_metadata = metadata[start:end]
 
-        batch_embeddings = get_embeddings_batch(batch_chunks)
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=batch_chunks
+        )
+        batch_embeddings = [item.embedding for item in response.data]
 
-        for embedding, meta in zip(batch_embeddings, batch_metadata):
-            vector_id = f"{meta['pdf_id']}_chunk_{meta['chunk_index']}"
-            vectors.append({"id": vector_id, "values": embedding, "metadata": meta})
+        for i, (embedding, metadata) in enumerate(zip(batch_embeddings, batch_metadata)):
+            vector_id = f"{metadata['pdf_id']}_chunk_{metadata['chunk_index']}"
+
+            vectors.append({"id": vector_id, "values": embedding, "metadata": metadata})
 
     return vectors
 
@@ -50,5 +65,5 @@ def store_in_pinecone(vectors, batch_limit=100):
             index.upsert(vectors=upsert_data)
             upsert_data = []
 
-    if upsert_data:    
+    if upsert_data:
         index.upsert(vectors=upsert_data)
