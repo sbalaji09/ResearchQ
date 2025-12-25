@@ -222,6 +222,21 @@ class ClusteringSessionResponse(BaseModel):
     outliers: List[str]
     created_at: str
 
+class GenerateReviewRequest(BaseModel):
+    pdf_ids: List[str]
+    title: Optional[str] = None
+    citation_style: str = "apa"
+
+class LiteratureReviewResponse(BaseModel):
+    title: str
+    introduction: str
+    methodology_overview: str
+    key_findings: str
+    research_gaps: str
+    conclusion: str
+    references: List[str]
+    citation_style: str
+
 # ---------------- Routes ----------------
 
 @app.get("/")
