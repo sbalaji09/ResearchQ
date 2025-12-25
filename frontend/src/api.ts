@@ -367,25 +367,72 @@ export async function deleteSession(sessionId: string): Promise<void> {
   }
 }
 
-export async function generateLiteratureReview(sessionId: string, pdfIds: string[], title?: string, citationStyle?: string) {
-  const res = await fetch(`${BASE_URL}/literature-review/generate/${sessionId}`, {
-    method: "POST",
-    body: JSON.stringify({ pdfIds: pdfIds, title: title, citationStyle: citationStyle }),
-  });
-  
-
-  if (!res.ok) {
-    throw new Error("Failed to delete session.");
-  }
+export interface LiteratureReviewResult {
+  title: string;
+  introduction: string;
+  methodology_overview: string;
+  key_findings: string;
+  research_gaps: string;
+  conclusion: string;
+  references: Array<{
+    authors: string[];
+    title: string;
+    year: number | string;
+  }>;
 }
 
-export async function exportLiteratureReview(sessionId: string, format: 'markdown' | 'latex' | 'docx', reviewData: object) {
+// generate a literature review from selected papers
+export async function generateLiteratureReview(
+  sessionId: string,
+  pdfIds: string[],
+  title?: string,
+  citationStyle?: string
+): Promise<LiteratureReviewResult> {
+  const res = await fetch(`${BASE_URL}/literature-review/generate/${sessionId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      pdf_ids: pdfIds,
+      title: title,
+      citation_style: citationStyle,
+    }),
+  });
+
+  if (!res.ok) {
+    let message = "Failed to generate literature review.";
+    try {
+      const data = await res.json();
+      if (data?.detail) message = data.detail;
+    } catch {}
+    throw new Error(message);
+  }
+
+  return res.json();
+}
+
+// export literature review in specified format
+export async function exportLiteratureReview(
+  sessionId: string,
+  format: 'markdown' | 'latex' | 'docx',
+  reviewData: LiteratureReviewResult
+): Promise<Blob> {
   const res = await fetch(`${BASE_URL}/literature-review/export/${sessionId}`, {
     method: "POST",
-    body: JSON.stringify({ format: format, reviewData: reviewData}),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      format: format,
+      review_data: reviewData,
+    }),
   });
-  
+
   if (!res.ok) {
-    throw new Error("Failed to delete session.");
+    let message = "Failed to export literature review.";
+    try {
+      const data = await res.json();
+      if (data?.detail) message = data.detail;
+    } catch {}
+    throw new Error(message);
   }
+
+  return res.blob();
 }
