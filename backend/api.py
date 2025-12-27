@@ -1044,11 +1044,13 @@ async def export_review(payload: ExportReviewRequest):
 # ---------------- Serve Frontend Static Files ----------------
 # This must be at the end to avoid catching API routes
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "build"
 
 if FRONTEND_DIR.exists():
     # Serve static assets (JS, CSS, images)
-    app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="assets")
+    assets_dir = FRONTEND_DIR / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
     # Catch-all route for SPA - serves index.html for all non-API routes
     @app.get("/{full_path:path}")
