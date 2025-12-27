@@ -1,6 +1,14 @@
-import json
+# Load environment variables FIRST, before any other imports
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+
+# Now import everything else
+import json
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
@@ -33,10 +41,6 @@ from clustering import (
 
 from paper_store import paper_store
 from cluster_store import cluster_store
-
-from dotenv import load_dotenv
-env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(env_path)
 
 # Initialize Pinecone client
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))

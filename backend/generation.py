@@ -7,8 +7,10 @@ from pathlib import Path
 from prompt import generate_system_prompt, generate_user_prompt
 from cache import detect_query_complexity, get_model_for_complexity
 
+# Load .env file only if it exists (local development)
 env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(env_path)
+if env_path.exists():
+    load_dotenv(env_path)
 
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
