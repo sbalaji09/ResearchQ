@@ -1,24 +1,45 @@
+# Stage 1: Build frontend
+FROM node:20-slim AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy frontend package files
+COPY frontend/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build frontend (VITE_API_URL will be empty, so it uses relative URLs)
+RUN npm run build
+
+# Stage 2: Python backend with frontend static files
 FROM python:3.13-slim
 
 WORKDIR /app
 
-# system dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# backend requirements + install
+# Copy backend requirements and install
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# backend code
+# Copy backend code
 COPY backend/ ./backend/
 
-# data directory for JSON storage
+# Copy built frontend from stage 1
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+
+# Create data directories
 RUN mkdir -p /app/backend/data /app/backend/test_papers
 
-# port
+# Expose port (Railway uses PORT env var)
 EXPOSE 8000
 
-# run fastapi server
+# Run the FastAPI server
 CMD ["uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8000"]
