@@ -12,7 +12,6 @@ from typing import Dict, List, Optional, Any
 from pathlib import Path
 
 from openai import OpenAI
-from dotenv import load_dotenv
 
 from literature_review import (
     get_abstract,
@@ -24,10 +23,14 @@ from literature_review import (
 )
 from paper_store import paper_store
 
-env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(env_path)
+# Lazy initialization of OpenAI client
+_openai_client = None
 
-openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+def get_openai_client():
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    return _openai_client
 
 
 # ============================================================================
@@ -225,7 +228,7 @@ Write an introduction that:
 
 Write 2-3 paragraphs in formal academic style. Do not use citations yet - this is just the introduction."""
 
-    response = openai_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=800,
@@ -266,7 +269,7 @@ Write a methodology overview that:
 Write 2-3 paragraphs comparing and contrasting the methodological approaches.
 Use phrases like "Several studies employed...", "In contrast, other researchers used...", etc."""
 
-    response = openai_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=800,
@@ -311,7 +314,7 @@ Write a comprehensive findings section that:
 Structure with subheadings for each theme. Write 4-5 paragraphs total.
 Use formal academic language."""
 
-    response = openai_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=1500,
@@ -350,7 +353,7 @@ Identify and write about:
 Write 2-3 paragraphs. Be specific about what is missing and why it matters.
 This section should help researchers identify opportunities for new studies."""
 
-    response = openai_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=800,
@@ -375,7 +378,7 @@ Write a conclusion that:
 
 Write 2 paragraphs in formal academic style."""
 
-    response = openai_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=600,

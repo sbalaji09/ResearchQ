@@ -1,18 +1,18 @@
 import re
-from dotenv import load_dotenv
 from openai import OpenAI
 import os
-from pathlib import Path
 
 from prompt import generate_system_prompt, generate_user_prompt
 from cache import detect_query_complexity, get_model_for_complexity
 
-# Load .env file only if it exists (local development)
-env_path = Path(__file__).parent.parent / ".env"
-if env_path.exists():
-    load_dotenv(env_path)
+# Lazy initialization of OpenAI client
+_client = None
 
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+def get_openai_client():
+    global _client
+    if _client is None:
+        _client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    return _client
 
 
 def answer_generation(chunks: list[str], question: str, metadata: dict, conversation_history: list = None) -> dict:
@@ -61,7 +61,7 @@ def answer_generation(chunks: list[str], question: str, metadata: dict, conversa
         complexity = detect_query_complexity(question)
         model_config = get_model_for_complexity(complexity)
 
-        response = client.chat.completions.create(
+        response = get_openai_client().chat.completions.create(
             model=model_config["model"],
             messages=[
                 {"role": "system", "content": system_prompt},

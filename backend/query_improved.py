@@ -2,8 +2,6 @@ import re
 from openai import OpenAI
 import os
 from pinecone import Pinecone
-from dotenv import load_dotenv
-from pathlib import Path
 from generation import answer_generation
 from retrieval import (
     detect_question_type,
@@ -14,17 +12,29 @@ from retrieval import (
 
 from exceptions import NoRelevantChunksError, LowRelevanceError, RetrievalError, GenerationError
 from cache import embedding_cache, detect_query_complexity, get_model_for_complexity
-import re
 
 _cross_encoder = None
+_openai_client = None
+_pinecone_client = None
 
 def get_cross_encoder():
     global _cross_encoder
     if _cross_encoder is None:
         from sentence_transformers import CrossEncoder
         _cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
-
     return _cross_encoder
+
+def get_openai_client():
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    return _openai_client
+
+def get_pinecone_client():
+    global _pinecone_client
+    if _pinecone_client is None:
+        _pinecone_client = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
+    return _pinecone_client
 
 MIN_RELEVANCE_SCORE = 0.25  # Below this, results are likely irrelevant
 LOW_RELEVANCE_WARNING = 0.4  # Below this, warn user about low confidence
@@ -35,13 +45,6 @@ SECTION_BOOST = 2.0
 RERANK_WEIGHT = 0.7
 HYBRID_WEIGHT = 0.3
 RERANK_CANDIDATES = 20
-
-# Load environment
-env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(env_path)
-
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 
 # query with section-aware boosting and optional reranking for better precision
 def query_with_section_boost(
@@ -61,7 +64,7 @@ def query_with_section_boost(
 
         # Get candidates from Pinecone
         index_name = os.environ.get("PINECONE_INDEX_NAME")
-        index = pc.Index(index_name)
+        index = get_pinecone_client().Index(index_name)
 
         query_filter = None
         if pdf_ids:
@@ -300,7 +303,7 @@ def print_results(question: str, results: list, show_scores: bool = True):
 # get embedding with caching
 def get_embedding_cached(text: str) -> list:
     def compute():
-        response = client.embeddings.create(
+        response = get_openai_client().embeddings.create(
             model="text-embedding-3-small",
             input=text.strip()
         )

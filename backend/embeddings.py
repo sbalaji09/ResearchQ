@@ -2,15 +2,22 @@
 from openai import OpenAI
 import os
 from pinecone import Pinecone, ServerlessSpec
-from dotenv import load_dotenv
-from pathlib import Path
 
-# Load environment variables from .env file
-env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(env_path)
+# Lazy initialization of clients
+_openai_client = None
+_pinecone_client = None
 
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
+def get_openai_client():
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    return _openai_client
+
+def get_pinecone_client():
+    global _pinecone_client
+    if _pinecone_client is None:
+        _pinecone_client = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
+    return _pinecone_client
 
 # gets the embedding for one piece of text
 def get_embedding(text: str):
@@ -18,7 +25,7 @@ def get_embedding(text: str):
     if not cleaned_text:
         return []
 
-    response = client.embeddings.create(
+    response = get_openai_client().embeddings.create(
         model="text-embedding-3-small",
         input=cleaned_text
     )
@@ -37,7 +44,7 @@ def embed_chunks(chunks: list[str], metadata: list[dict], batch_size: int = 64):
         batch_chunks = chunks[start: end]
         batch_metadata = metadata[start:end]
 
-        response = client.embeddings.create(
+        response = get_openai_client().embeddings.create(
             model="text-embedding-3-small",
             input=batch_chunks
         )
@@ -53,7 +60,7 @@ def embed_chunks(chunks: list[str], metadata: list[dict], batch_size: int = 64):
 # stores vectors in pinecone based on a batch limit
 def store_in_pinecone(vectors, batch_limit=100):
     index_name = os.environ.get("PINECONE_INDEX_NAME")
-    index = pc.Index(index_name)
+    index = get_pinecone_client().Index(index_name)
 
     upsert_data = []
     for vector_data in vectors:

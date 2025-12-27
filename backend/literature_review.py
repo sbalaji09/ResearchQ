@@ -1,20 +1,28 @@
 import os
-from pathlib import Path
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, field
 from collections import defaultdict
 
 from openai import OpenAI
 from pinecone import Pinecone
-from dotenv import load_dotenv
 from query_improved import query_with_section_boost
 import re
 
-env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(env_path)
+# Lazy initialization of clients
+_pinecone_client = None
+_openai_client = None
 
-pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+def get_pinecone_client():
+    global _pinecone_client
+    if _pinecone_client is None:
+        _pinecone_client = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
+    return _pinecone_client
+
+def get_openai_client():
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    return _openai_client
 
 # result of comparing multiple papers
 @dataclass
@@ -42,7 +50,7 @@ def get_paper_chunks(
     max_chunks: int = 50,
 ) -> List[Dict[str, Any]]:
     index_name = os.environ.get("PINECONE_INDEX_NAME")
-    index = pc.Index(index_name)
+    index = get_pinecone_client().Index(index_name)
     
     stats = index.describe_index_stats()
     dimension = stats.dimension
@@ -144,7 +152,7 @@ def extract_methodology_summary(pdf_id: str) -> Dict[str, Any]:
 
         If any component is not mentioned, write "Not specified" for that field."""
 
-    response = openai_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=500,
@@ -223,7 +231,7 @@ def compare_papers(pdf_ids: List[str]) -> ComparisonResult:
 
         Be specific and cite which papers you're referring to when noting differences."""
 
-    response = openai_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=1000,
@@ -334,7 +342,7 @@ def synthesize_findings(
 
         Write a well-organized synthesis that a researcher could use to understand the collective insights from these papers."""
 
-    response = openai_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o",  # Use stronger model for synthesis
         messages=[{"role": "user", "content": synthesis_prompt}],
         max_tokens=1500,
@@ -352,7 +360,7 @@ def synthesize_findings(
         - How findings agree or disagree
         - Overall pattern of results"""
 
-    response = openai_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": findings_prompt}],
         max_tokens=500,
