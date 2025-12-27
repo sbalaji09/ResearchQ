@@ -41,5 +41,8 @@ RUN mkdir -p /app/backend/data /app/backend/test_papers
 # Expose port (Railway uses PORT env var)
 EXPOSE 8000
 
+# Set working directory to backend for correct imports
+WORKDIR /app/backend
+
 # Run the FastAPI server
-CMD ["uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1044,7 +1044,10 @@ async def export_review(payload: ExportReviewRequest):
 # ---------------- Serve Frontend Static Files ----------------
 # This must be at the end to avoid catching API routes
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "build"
+# Try Docker path first, then local dev path
+FRONTEND_DIR = Path("/app/frontend/build")
+if not FRONTEND_DIR.exists():
+    FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "build"
 
 if FRONTEND_DIR.exists():
     # Serve static assets (JS, CSS, images)
