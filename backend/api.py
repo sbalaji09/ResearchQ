@@ -42,8 +42,14 @@ from clustering import (
 from paper_store import paper_store
 from cluster_store import cluster_store
 
-# Initialize Pinecone client
-pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
+# Lazy initialization of Pinecone client
+_pc = None
+
+def get_pinecone_client():
+    global _pc
+    if _pc is None:
+        _pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
+    return _pc
 
 
 # ---------------- FastAPI app ----------------
@@ -378,7 +384,7 @@ async def clear_data():
   try:
     # Clear Pinecone vectors
     index_name = os.environ.get("PINECONE_INDEX_NAME")
-    index = pc.Index(index_name)
+    index = get_pinecone_client().Index(index_name)
     index.delete(delete_all=True)
 
     # Delete local PDF files
