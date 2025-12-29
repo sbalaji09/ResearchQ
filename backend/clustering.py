@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -10,12 +9,15 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from pinecone import Pinecone
-from dotenv import load_dotenv
 
-env_path = Path(__file__).parent.parent / ".env"
-load_dotenv(env_path)
+# Lazy initialization of Pinecone client
+_pc = None
 
-pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
+def get_pinecone_client():
+    global _pc
+    if _pc is None:
+        _pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
+    return _pc
 
 # represents a paper's aggregated embedding
 @dataclass
@@ -70,7 +72,7 @@ def get_section_weight(section_name: str) -> float:
 # generate a single embedding vector representing an entire paper
 def get_paper_embedding(pdf_id: str) -> Optional[PaperEmbedding]:
     index_name = os.environ.get("PINECONE_INDEX_NAME")
-    index = pc.Index(index_name)
+    index = get_pinecone_client().Index(index_name)
     
     # get the dimension of the index
     stats = index.describe_index_stats()
@@ -156,7 +158,7 @@ def get_all_paper_embeddings(pdf_ids: Optional[List[str]] = None) -> List[PaperE
 # get all unique pdf_ids from the Pinecone index
 def get_all_pdf_ids() -> List[str]:
     index_name = os.environ.get("PINECONE_INDEX_NAME")
-    index = pc.Index(index_name)
+    index = get_pinecone_client().Index(index_name)
     
     stats = index.describe_index_stats()
     dimension = stats.dimension
@@ -308,7 +310,7 @@ def extract_cluster_topics_tfidf(
     top_n: int = 5,
 ) -> List[str]:
     index_name = os.environ.get("PINECONE_INDEX_NAME")
-    index = pc.Index(index_name)
+    index = get_pinecone_client().Index(index_name)
     
     cluster_texts = []
     
