@@ -272,6 +272,10 @@ class LiteratureReviewResponse(BaseModel):
 async def root():
   return {"status": "ok", "message": "ResearchQ backend is running"}
 
+@app.get("/health")
+async def health():
+  return {"status": "ok"}
+
 # accepts a single PDF file and saves it to the backend/test_papers
 @app.post("/upload", response_model=UploadResponse)
 async def upload_pdf(file: UploadFile = File(...), domain: Optional[str] = None):

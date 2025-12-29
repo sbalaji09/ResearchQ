@@ -46,11 +46,12 @@ COPY --from=frontend-builder /app/frontend/build ./frontend/build
 # Create data directories
 RUN mkdir -p /app/backend/data /app/backend/test_papers
 
-# Expose port (Railway uses PORT env var)
-EXPOSE 8000
-
 # Set working directory to backend for correct imports
 WORKDIR /app/backend
 
-# Run the FastAPI server
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default port (Railway overrides via $PORT env var)
+ENV PORT=8000
+EXPOSE 8000
+
+# Run the FastAPI server (Railway's startCommand will override this)
+CMD uvicorn api:app --host 0.0.0.0 --port $PORT
