@@ -53,5 +53,5 @@ WORKDIR /app/backend
 ENV PORT=8000
 EXPOSE 8000
 
-# Run the FastAPI server (Railway's startCommand will override this)
-CMD uvicorn api:app --host 0.0.0.0 --port $PORT
+# Run the FastAPI server using shell form for variable expansion
+CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port ${PORT}"]
