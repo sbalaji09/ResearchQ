@@ -283,7 +283,8 @@ def create_chunks_hierarchical(
     document_id: str = "doc",
     small_chunk_size: int = 400,    # Increased for better context
     large_chunk_size: int = 800,    # For context in generation
-    overlap_sentences: int = 3      # More overlap for continuity
+    overlap_sentences: int = 3,     # More overlap for continuity
+    domain_config: "DomainConfig" = None  # Optional domain configuration
 ) -> List[Chunk]:
     """
     Create hierarchical chunks at multiple granularities
