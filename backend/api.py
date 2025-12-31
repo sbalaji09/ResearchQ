@@ -13,8 +13,6 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from pinecone import Pinecone
 
@@ -60,7 +58,7 @@ app = FastAPI(
 )
 
 # ---------------- CORS ----------------
-# Allow local dev servers and Railway domains
+# Allow local dev servers, Railway, and Vercel domains
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -74,6 +72,11 @@ origins = [
 railway_url = os.environ.get("RAILWAY_PUBLIC_DOMAIN")
 if railway_url:
     origins.append(f"https://{railway_url}")
+
+# Add Vercel frontend URL if set
+vercel_url = os.environ.get("FRONTEND_URL")
+if vercel_url:
+    origins.append(vercel_url)
 
 app.add_middleware(
     CORSMiddleware,
@@ -1053,28 +1056,3 @@ async def export_review(payload: ExportReviewRequest):
         )
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {payload.format}. Use 'markdown', 'latex', or 'docx'.")
-
-
-# ---------------- Serve Frontend Static Files ----------------
-# This must be at the end to avoid catching API routes
-
-# Try Docker path first, then local dev path
-FRONTEND_DIR = Path("/app/frontend/build")
-if not FRONTEND_DIR.exists():
-    FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend" / "build"
-
-if FRONTEND_DIR.exists():
-    # Serve static assets (JS, CSS, images)
-    assets_dir = FRONTEND_DIR / "assets"
-    if assets_dir.exists():
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-
-    # Catch-all route for SPA - serves index.html for all non-API routes
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        # If it's a file that exists, serve it
-        file_path = FRONTEND_DIR / full_path
-        if file_path.is_file():
-            return FileResponse(file_path)
-        # Otherwise serve index.html for SPA routing
-        return FileResponse(FRONTEND_DIR / "index.html")

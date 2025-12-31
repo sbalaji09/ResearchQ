@@ -1,21 +1,4 @@
-# Stage 1: Build frontend
-FROM node:20-slim AS frontend-builder
-
-WORKDIR /app/frontend
-
-# Copy frontend package files
-COPY frontend/package*.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy frontend source
-COPY frontend/ ./
-
-# Build frontend (VITE_API_URL will be empty, so it uses relative URLs)
-RUN npm run build
-
-# Stage 2: Python backend with frontend static files
+# Backend-only Dockerfile for Railway
 FROM python:3.13-slim
 
 WORKDIR /app
@@ -40,9 +23,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend code
 COPY backend/ ./backend/
 
-# Copy built frontend from stage 1
-COPY --from=frontend-builder /app/frontend/build ./frontend/build
-
 # Create data directories
 RUN mkdir -p /app/backend/data /app/backend/test_papers
 
@@ -53,5 +33,5 @@ WORKDIR /app/backend
 ENV PORT=8000
 EXPOSE 8000
 
-# Run the FastAPI server using shell form for variable expansion
+# Run the FastAPI server
 CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port ${PORT}"]
