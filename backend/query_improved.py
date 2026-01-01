@@ -305,10 +305,10 @@ def print_results(question: str, results: list, show_scores: bool = True):
 
 # get embedding with caching
 def get_embedding_cached(text: str) -> list:
-    def compute():
+    def compute(t: str):
         response = get_openai_client().embeddings.create(
             model="text-embedding-3-small",
-            input=text.strip()
+            input=t.strip()
         )
         return response.data[0].embedding
 
