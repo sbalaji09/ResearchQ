@@ -78,6 +78,12 @@ vercel_url = os.environ.get("FRONTEND_URL")
 if vercel_url:
     origins.append(vercel_url)
 
+# Also allow common Vercel patterns
+origins.extend([
+    "https://research-q.vercel.app",
+    "https://researchq.vercel.app",
+])
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
