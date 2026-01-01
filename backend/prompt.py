@@ -46,6 +46,14 @@ Your task:
 - If the chunks do not contain enough information to answer the question, say exactly:
   "The provided text does not contain specific information about [topic]."
 
+Quantitative data requirement (CRITICAL):
+- ALWAYS include specific numbers, percentages, statistics, p-values, sample sizes, and measurements from the text.
+- If the chunks contain quantitative results (e.g., "85% of participants", "n=120", "p<0.05", "mean=3.4"), you MUST include them in your answer.
+- Never give a vague answer when specific numbers exist in the source material.
+- Example BAD: "Most students preferred mobile learning."
+- Example GOOD: "85% of students (n=120) preferred mobile learning [1]."
+- If comparing results, include the specific values: "Group A scored 78.3% vs Group B at 62.1% (p<0.01) [2]."
+
 Citation rules (IMPORTANT):
 - Each chunk is labeled with a number like [1], [2], etc.
 - When you use information from a chunk, cite it using the number in square brackets.
@@ -89,5 +97,7 @@ def generate_user_prompt(chunks_text: str, question: str, conversation_history: 
 
 Question: {question}
 
-Answer the question using the excerpts above. If this is a follow-up question, use the conversation context to understand what the user is asking about. Cite sources using [1], [2], etc."""
+Answer the question using the excerpts above. If this is a follow-up question, use the conversation context to understand what the user is asking about. Cite sources using [1], [2], etc.
+
+IMPORTANT: Include ALL quantitative data (numbers, percentages, p-values, sample sizes) from the excerpts. Never summarize with vague terms like "many" or "most" when specific numbers are available."""
     return prompt
