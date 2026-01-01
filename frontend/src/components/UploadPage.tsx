@@ -3,11 +3,12 @@ import { Upload, File, X, ArrowLeft, Sparkles, Loader2, AlertCircle } from 'luci
 import { uploadPaper } from '@/api';
 
 interface UploadPageProps {
-  onUpload: (files: File[]) => void;
+  onUpload: (files: File[], sessionId?: string) => void;
   onBack: () => void;
+  sessionId: string | null;
 }
 
-export function UploadPage({ onUpload, onBack }: UploadPageProps) {
+export function UploadPage({ onUpload, onBack, sessionId }: UploadPageProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -68,8 +69,9 @@ export function UploadPage({ onUpload, onBack }: UploadPageProps) {
     setError(null);
 
     try {
-      await uploadPaper(selectedFile);
-      onUpload([selectedFile]);
+      const response = await uploadPaper(selectedFile, sessionId || undefined);
+      // Pass the session_id back to parent so it can track for cleanup
+      onUpload([selectedFile], response.session_id);
       setSelectedFile(null);
     } catch (err: unknown) {
       const msg =

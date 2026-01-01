@@ -87,10 +87,20 @@ export interface ClusteringSession {
   created_at: string;
 }
 
+export interface UploadResponse {
+  status: string;
+  filename: string;
+  pdf_id: string;
+  session_id: string;
+}
+
 // upload a single paper to the backend
-export async function uploadPaper(file: File) {
+export async function uploadPaper(file: File, sessionId?: string): Promise<UploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
+  if (sessionId) {
+    formData.append("session_id", sessionId);
+  }
 
   const res = await fetch(`${BASE_URL}/upload`, {
     method: "POST",
@@ -105,6 +115,32 @@ export async function uploadPaper(file: File) {
     } catch {
     }
     throw new Error(message);
+  }
+
+  return res.json();
+}
+
+// clean up session papers when user leaves
+export function cleanupSession(sessionId: string): void {
+  // Use sendBeacon for reliable delivery on page unload
+  const data = JSON.stringify({ session_id: sessionId });
+  navigator.sendBeacon(`${BASE_URL}/session/cleanup`, data);
+}
+
+// Alternative cleanup using fetch (for manual cleanup)
+export async function cleanupSessionAsync(sessionId: string): Promise<{
+  status: string;
+  papers_deleted: number;
+  pdf_ids: string[];
+}> {
+  const res = await fetch(`${BASE_URL}/session/cleanup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to cleanup session.");
   }
 
   return res.json();

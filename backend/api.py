@@ -39,6 +39,7 @@ from clustering import (
 
 from paper_store import paper_store
 from cluster_store import cluster_store
+from session_store import session_store
 
 # Lazy initialization of Pinecone client
 _pc = None
@@ -128,6 +129,8 @@ class AskResponse(BaseModel):
 class UploadResponse(BaseModel):
   status: str
   filename: str
+  pdf_id: str
+  session_id: Optional[str] = None
 
 class PaperInfo(BaseModel):
   filename: str
@@ -140,6 +143,17 @@ class ClearResponse(BaseModel):
 
 class DeletePaperRequest(BaseModel):
   pdf_id: str
+
+class SessionResponse(BaseModel):
+  session_id: str
+
+class SessionCleanupRequest(BaseModel):
+  session_id: str
+
+class SessionCleanupResponse(BaseModel):
+  status: str
+  papers_deleted: int
+  pdf_ids: List[str]
 
 class ConversationInfo(BaseModel):
   id: str
@@ -287,12 +301,19 @@ async def health():
 
 # accepts a single PDF file and saves it to the backend/test_papers
 @app.post("/upload", response_model=UploadResponse)
-async def upload_pdf(file: UploadFile = File(...), domain: Optional[str] = None):
+async def upload_pdf(
+  file: UploadFile = File(...),
+  domain: Optional[str] = None,
+  session_id: Optional[str] = None
+):
   if file.content_type not in ("application/pdf", "application/x-pdf"):
     raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
 
   safe_filename = file.filename.replace(" ", "_")
   dest_path = TEST_PAPERS_DIR / safe_filename
+
+  # Get or create session
+  session = session_store.get_or_create_session(session_id)
 
   try:
     file_bytes = await file.read()
@@ -319,6 +340,9 @@ async def upload_pdf(file: UploadFile = File(...), domain: Optional[str] = None)
         domain=domain,
         chunk_count=chunk_count,
     )
+
+    # Track this paper in the session for cleanup
+    session.add_pdf(pdf_id)
   except HTTPException:
     raise
   except Exception as e:
@@ -333,7 +357,12 @@ async def upload_pdf(file: UploadFile = File(...), domain: Optional[str] = None)
       )
     raise HTTPException(status_code=500, detail=f"Failed to process PDF: {e}")
 
-  return UploadResponse(status="success", filename=safe_filename)
+  return UploadResponse(
+    status="success",
+    filename=safe_filename,
+    pdf_id=pdf_id,
+    session_id=session.session_id
+  )
 
 # accepts JSON and uses RAG pipeline to answer
 @app.post("/ask", response_model=AskResponse)
@@ -454,8 +483,61 @@ async def list_papers():
         path=str(pdf_path.relative_to(BASE_DIR))
       )
     )
-  
+
   return papers
+
+
+# -------- Session Management Endpoints --------
+
+@app.post("/session/create", response_model=SessionResponse)
+async def create_session():
+  """Create a new session for tracking uploaded papers."""
+  session = session_store.create_session()
+  return SessionResponse(session_id=session.session_id)
+
+
+@app.post("/session/cleanup", response_model=SessionCleanupResponse)
+async def cleanup_session(payload: SessionCleanupRequest):
+  """
+  Clean up all papers uploaded in this session.
+  Called when user leaves the page to free up Pinecone storage.
+  """
+  session_id = payload.session_id
+  pdf_ids = session_store.get_session_pdfs(session_id)
+
+  if not pdf_ids:
+    return SessionCleanupResponse(
+      status="success",
+      papers_deleted=0,
+      pdf_ids=[]
+    )
+
+  # Delete vectors and files for each paper in the session
+  from ingest_paper import delete_paper_vectors
+  deleted_count = 0
+
+  for pdf_id in pdf_ids:
+    try:
+      delete_paper_vectors(pdf_id)
+
+      pdf_path = TEST_PAPERS_DIR / f"{pdf_id}.pdf"
+      if pdf_path.exists():
+        pdf_path.unlink()
+
+      paper_store.delete_paper(pdf_id)
+      deleted_count += 1
+    except Exception as e:
+      print(f"[WARN] Failed to delete paper {pdf_id}: {e}")
+
+  # Remove the session
+  session_store.delete_session(session_id)
+
+  return SessionCleanupResponse(
+    status="success",
+    papers_deleted=deleted_count,
+    pdf_ids=pdf_ids
+  )
+
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
