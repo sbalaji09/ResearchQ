@@ -127,7 +127,7 @@ def detect_subsection(line: str) -> Optional[str]:
     return None
 
 
-def split_into_sections(text: str, domain_config: DomainConfig) -> List[Tuple[str, str]]:
+def split_into_sections(text: str, domain_config: DomainConfig = None) -> List[Tuple[str, str]]:
     """
     Split document into sections with their headers
     
@@ -300,8 +300,8 @@ def create_chunks_hierarchical(
     - Expand to parent chunk for context during generation
     """
     all_chunks = []
-    sections = split_into_sections(text)
-    
+    sections = split_into_sections(text, domain_config)
+
     for section_name, section_text in sections:
         # Skip sections that hurt retrieval
         if section_name in SKIP_SECTIONS:
@@ -400,14 +400,15 @@ def chunk_by_paragraphs(
     document_id: str = "doc",
     min_chunk_size: int = 100,
     max_chunk_size: int = 400,
+    domain_config: "DomainConfig" = None,
 ) -> List[Chunk]:
     """
     Chunk by natural paragraph boundaries
-    
+
     Paragraphs are natural semantic units in academic writing.
     Merge small paragraphs, split large ones.
     """
-    sections = split_into_sections(text)
+    sections = split_into_sections(text, domain_config)
     all_chunks = []
     
     for section_name, section_text in sections:
@@ -528,7 +529,7 @@ def chunk_by_paragraphs(
     
     return all_chunks
 
-def chunk_recursive(text: str, document_id: str = "doc", max_chunk_size: int = 400, min_chunk_size: int = 50) -> List[Chunk]:
+def chunk_recursive(text: str, document_id: str = "doc", max_chunk_size: int = 400, min_chunk_size: int = 50, domain_config: "DomainConfig" = None) -> List[Chunk]:
     """
     Recursive chunking: tries larger units first, splits smaller if needed.
 
@@ -541,7 +542,7 @@ def chunk_recursive(text: str, document_id: str = "doc", max_chunk_size: int = 4
     chunks: List[Chunk] = []
     chunk_index = 0
 
-    sections = split_into_sections(text)
+    sections = split_into_sections(text, domain_config)
 
     for section_name, section_content in sections:
         # Skip sections that hurt retrieval
@@ -786,7 +787,7 @@ def chunk_document(
             domain_config=domain_config,
         )
     else:  # sentence (your original approach, improved)
-        sections = split_into_sections(text)
+        sections = split_into_sections(text, domain_config)
         chunks = []
         for section_name, section_text in sections:
             if section_name in SKIP_SECTIONS:

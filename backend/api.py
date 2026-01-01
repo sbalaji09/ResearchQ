@@ -293,14 +293,17 @@ async def upload_pdf(file: UploadFile = File(...), domain: Optional[str] = None)
 
     if len(file_bytes) > 50 * 1024 * 1024:
       raise HTTPException(status_code=400, detail="File too large. Maximum size is 50MB.")
-    
+
     if not file_bytes.startswith(b'%PDF'):
       raise HTTPException(status_code=400, detail="Invalid PDF file.")
-    
+
     dest_path.write_bytes(file_bytes)
 
     pdf_id = safe_filename.replace(".pdf", "")
-    result = ingest_paper(dest_path, pdf_id=pdf_id, clear_existing=False, domain=domain)
+
+    # Use fast ingestion for better UX
+    from ingest_paper import ingest_paper_fast
+    result = ingest_paper_fast(dest_path, pdf_id=pdf_id, clear_existing=False, domain=domain)
 
     # Store paper metadata
     chunk_count = result.get("chunks", 0) if isinstance(result, dict) else 0
@@ -315,7 +318,7 @@ async def upload_pdf(file: UploadFile = File(...), domain: Optional[str] = None)
   except Exception as e:
     if dest_path.exists():
       dest_path.unlink()
-    
+
     error_message = str(e)
     if "NoTextExtractedError" in error_message or "no text" in error_message.lower():
       raise HTTPException(

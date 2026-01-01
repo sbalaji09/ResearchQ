@@ -3,15 +3,79 @@ Main script to ingest research papers into the vector database
 Uses improved hierarchical chunking and rich metadata
 """
 from pathlib import Path
-from parse_pdf_enhanced import extract_text_from_pdf_enhanced
-from chunk_text_improved import chunk_document, chunks_to_documents
-from embeddings import embed_chunks, store_in_pinecone
+from parse_pdf_enhanced import extract_text_from_pdf_enhanced, extract_text_from_pdf_fast
+from chunk_text_improved import chunk_document
+from embeddings import embed_chunks, embed_chunks_parallel, store_in_pinecone
 import os
+
+
+def ingest_paper_fast(pdf_path: Path, pdf_id: str, clear_existing: bool = False, domain: str = None):
+    """
+    FAST pipeline to ingest a research paper - optimized for speed.
+
+    Key optimizations:
+    1. Uses pypdf directly instead of unstructured (10-50x faster)
+    2. Uses parallel embedding generation
+    3. Minimal logging for speed
+
+    Args:
+        pdf_path: Path to PDF file
+        pdf_id: Unique identifier for this paper
+        clear_existing: Whether to clear existing vectors first
+        domain: Optional domain hint for chunking
+
+    Returns:
+        dict with 'chunks' count
+    """
+    # Optional: Clear existing vectors
+    if clear_existing:
+        try:
+            from embeddings import get_pinecone_client
+            index_name = os.environ.get("PINECONE_INDEX_NAME")
+            index = get_pinecone_client().Index(index_name)
+            index.delete(delete_all=True)
+        except Exception:
+            pass
+
+    # Step 1: Fast PDF extraction (pypdf instead of unstructured)
+    pages_text = extract_text_from_pdf_fast(pdf_path)
+    full_text = "\n\n".join(pages_text)
+
+    # Step 2: Chunking (already fast)
+    chunk_objects = chunk_document(
+        full_text,
+        document_id=pdf_id,
+        strategy="hierarchical",
+        add_synthetic=True,
+        domain=domain,
+        auto_detect_domain=(domain is None),
+    )
+
+    # Step 3: Prepare chunks for embedding
+    chunks_text = [chunk.text for chunk in chunk_objects]
+    chunks_metadata = []
+
+    for i, chunk in enumerate(chunk_objects):
+        metadata = {
+            'pdf_id': pdf_id,
+            'text': chunk.text,
+            'chunk_index': i,
+            **chunk.metadata
+        }
+        chunks_metadata.append(metadata)
+
+    # Step 4: Generate embeddings (parallel for speed)
+    vectors = embed_chunks_parallel(chunks_text, chunks_metadata)
+
+    # Step 5: Store in Pinecone
+    store_in_pinecone(vectors)
+
+    return {"chunks": len(chunk_objects), "status": "success"}
 
 
 def ingest_paper(pdf_path: Path, pdf_id: str, clear_existing: bool = False, domain: str = None):
     """
-    Complete pipeline to ingest a research paper
+    Complete pipeline to ingest a research paper (original version with full logging)
 
     Args:
         pdf_path: Path to PDF file
@@ -26,9 +90,9 @@ def ingest_paper(pdf_path: Path, pdf_id: str, clear_existing: bool = False, doma
     if clear_existing:
         print("\n[0/5] Clearing existing vectors from Pinecone...")
         try:
-            from embeddings import pc
+            from embeddings import get_pinecone_client
             index_name = os.environ.get("PINECONE_INDEX_NAME")
-            index = pc.Index(index_name)
+            index = get_pinecone_client().Index(index_name)
             index.delete(delete_all=True)
             print("✓ Cleared all existing vectors")
         except Exception as e:
@@ -108,16 +172,16 @@ def ingest_paper(pdf_path: Path, pdf_id: str, clear_existing: bool = False, doma
     print(f"  Chunk types: {', '.join(type_counts.keys())}")
     print(f"\n💡 Next: Run 'python query_improved.py' to test retrieval")
 
-    return len(chunk_objects)
+    return {"chunks": len(chunk_objects), "status": "success"}
 
-# deletes all the vecotrs for a specific pdf
+# deletes all the vectors for a specific pdf
 def delete_paper_vectors(pdf_id: str) -> int:
-    from embeddings import pc
+    from embeddings import get_pinecone_client
     index_name = os.environ.get("PINECONE_INDEX_NAME")
-    index = pc.Index(index_name)
+    index = get_pinecone_client().Index(index_name)
 
     index.delete(filter={"pdf_id": {"$eq": pdf_id}})
-    
+
     return 0
 
 def ingest_multiple_papers(pdf_dir: Path, clear_existing: bool = False) -> dict:

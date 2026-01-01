@@ -164,12 +164,50 @@ def merge_tables_into_pages(pages_text: list[str], tables_by_page: dict[int, lis
     
     return merged_pages
 
-# extract text from PDF with multiple fallback strategies
+# FAST extraction - uses pypdf first (much faster than unstructured)
+def extract_text_from_pdf_fast(pdf_path: Path) -> list[str]:
+    """
+    Fast PDF text extraction optimized for speed.
+    Uses pypdf directly which is 10-50x faster than unstructured hi_res.
+    Falls back to OCR only if pypdf fails completely.
+    """
+    pdf_type = detect_pdf_type(pdf_path)
+    pages_text = []
+
+    # For text-based PDFs, pypdf is fast and accurate
+    if pdf_type == "text-based":
+        try:
+            pages_text = extract_text_from_pdf(pdf_path)
+            pages_text = validate_extracted_text(pages_text, pdf_path)
+            logger.info(f"{pdf_path.name}: Fast extraction with pypdf succeeded")
+            return pages_text
+        except Exception as e:
+            logger.warning(f"pypdf failed for {pdf_path.name}: {e}")
+            pages_text = []
+
+    # Only use OCR for scanned PDFs or when pypdf fails
+    if not pages_text:
+        try:
+            logger.info(f"{pdf_path.name}: Attempting OCR extraction...")
+            pages_text = extract_with_ocr(pdf_path)
+            pages_text = validate_extracted_text(pages_text, pdf_path)
+            logger.info(f"{pdf_path.name}: Successfully extracted with OCR")
+        except Exception as e:
+            logger.error(f"OCR failed for {pdf_path.name}: {e}")
+            raise PDFParsingError(
+                f"Could not extract text from {pdf_path.name}",
+                pdf_path.name
+            )
+
+    return pages_text
+
+
+# extract text from PDF with multiple fallback strategies (original - slower but more robust)
 def extract_text_from_pdf_enhanced(pdf_path: Path) -> list[str]:
     pdf_type = detect_pdf_type(pdf_path)
     pages_text = []
     errors = []
-    
+
     if pdf_type == "text-based":
         try:
             pages_text = extract_with_unstructured(pdf_path)
@@ -179,7 +217,7 @@ def extract_text_from_pdf_enhanced(pdf_path: Path) -> list[str]:
             errors.append(f"Unstructued: {e}")
             logger.warning(f"Unstructured failed for {pdf_path.name}: {e}")
             pages_text = []
-    
+
     if not pages_text and pdf_type == "text-based":
         try:
             pages_text = extract_text_from_pdf(pdf_path)
@@ -189,7 +227,7 @@ def extract_text_from_pdf_enhanced(pdf_path: Path) -> list[str]:
             errors.append(f"pypdf: {e}")
             logger.warning(f"pypdf failed for {pdf_path.name}: {e}")
             pages_text = []
-    
+
     if not pages_text:
         try:
             logger.info(f"{pdf_path.name}: Attempting OCR extraction...")
@@ -199,14 +237,14 @@ def extract_text_from_pdf_enhanced(pdf_path: Path) -> list[str]:
         except Exception as e:
             errors.append(f"OCR: {e}")
             logger.error(f"OCR failed for {pdf_path.name}: {e}")
-    
+
     if not pages_text:
         error_details = "; ".join(errors)
         raise PDFParsingError(
             f"All extraction methods failed for {pdf_path.name}. Errors: {error_details}",
             pdf_path.name
         )
-    
+
     try:
         tables_by_page = extract_all_tables(pdf_path)
         if tables_by_page:
@@ -214,7 +252,7 @@ def extract_text_from_pdf_enhanced(pdf_path: Path) -> list[str]:
             pages_text = merge_tables_into_pages(pages_text, tables_by_page)
     except Exception as e:
         logger.warning(f"Table extraction failed (non-critical): {e}")
-    
+
     return pages_text
 
 # validates extracted text quality
