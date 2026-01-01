@@ -180,10 +180,13 @@ def content_generator(question: str, top_k: int = 5, pdf_ids: list[str]=None, co
             question=question,
             top_k=top_k,
             boost_factor=2.0,
-            use_reranking=True,
+            use_reranking=False,  # Disable reranking for faster/more reliable queries
             pdf_ids=pdf_ids
         )
     except Exception as e:
+        import traceback
+        print(f"[ERROR] Retrieval failed: {str(e)}")
+        print(traceback.format_exc())
         # Fallback message if retrieval itself fails
         return {
             "answer": "I encountered an error while searching the documents. Please try again.",
