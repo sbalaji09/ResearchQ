@@ -331,11 +331,11 @@ export function PapersView({ papers, onBack, onUploadMore, onClearPapers, onLitR
                         type="text"
                         value={question}
                         onChange={(e) => setQuestion(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAskQuestion()}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAskQuestion()}
                         placeholder="Ask a question about this paper..."
-                        className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#41337A] focus:border-transparent transition-all duration-300"
+                        className="w-full pl-5 pr-12 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#41337A] focus:border-transparent transition-all duration-300"
                       />
-                      <Zap className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Zap className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     </div>
                     <button
                       onClick={handleAskQuestion}
