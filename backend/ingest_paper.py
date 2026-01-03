@@ -15,8 +15,10 @@ def ingest_paper_fast(pdf_path: Path, pdf_id: str, clear_existing: bool = False,
 
     Key optimizations:
     1. Uses pypdf directly instead of unstructured (10-50x faster)
-    2. Uses parallel embedding generation
-    3. Minimal logging for speed
+    2. Uses parallel embedding generation with large batches (2048)
+    3. Parallel Pinecone upserts
+    4. Skips domain auto-detection (uses 'general' for speed)
+    5. Minimal logging
 
     Args:
         pdf_path: Path to PDF file
@@ -41,33 +43,32 @@ def ingest_paper_fast(pdf_path: Path, pdf_id: str, clear_existing: bool = False,
     pages_text = extract_text_from_pdf_fast(pdf_path)
     full_text = "\n\n".join(pages_text)
 
-    # Step 2: Chunking (already fast)
+    # Step 2: Chunking - skip auto-detection for speed, use 'general' domain
     chunk_objects = chunk_document(
         full_text,
         document_id=pdf_id,
         strategy="hierarchical",
-        add_synthetic=True,
-        domain=domain,
-        auto_detect_domain=(domain is None),
+        add_synthetic=False,  # Skip synthetic chunks for speed
+        domain=domain or "general",  # Use provided domain or default to general
+        auto_detect_domain=False,  # Skip expensive domain detection
     )
 
-    # Step 3: Prepare chunks for embedding
+    # Step 3: Prepare chunks for embedding (use list comprehension for speed)
     chunks_text = [chunk.text for chunk in chunk_objects]
-    chunks_metadata = []
-
-    for i, chunk in enumerate(chunk_objects):
-        metadata = {
+    chunks_metadata = [
+        {
             'pdf_id': pdf_id,
             'text': chunk.text,
             'chunk_index': i,
             **chunk.metadata
         }
-        chunks_metadata.append(metadata)
+        for i, chunk in enumerate(chunk_objects)
+    ]
 
-    # Step 4: Generate embeddings (parallel for speed)
+    # Step 4: Generate embeddings (parallel with large batch size)
     vectors = embed_chunks_parallel(chunks_text, chunks_metadata)
 
-    # Step 5: Store in Pinecone
+    # Step 5: Store in Pinecone (parallel upserts)
     store_in_pinecone(vectors)
 
     return {"chunks": len(chunk_objects), "status": "success"}

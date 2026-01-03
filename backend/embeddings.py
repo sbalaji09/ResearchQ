@@ -75,11 +75,14 @@ def _embed_batch(batch_chunks: list[str], batch_metadata: list[dict], client: Op
     return vectors
 
 
-def embed_chunks_parallel(chunks: list[str], metadata: list[dict], batch_size: int = 64, max_workers: int = 4):
+def embed_chunks_parallel(chunks: list[str], metadata: list[dict], batch_size: int = 2048, max_workers: int = 6):
     """
     Parallel embedding generation - processes multiple batches concurrently.
 
-    For a typical 11-page paper with ~30-50 chunks, this can reduce embedding time by 2-3x.
+    Optimizations:
+    - batch_size=2048: OpenAI allows up to 2048 inputs per request
+    - Most papers (30-100 chunks) now fit in a single API call
+    - Reduced API overhead = faster uploads
     """
     if len(chunks) != len(metadata):
         return []
@@ -87,13 +90,13 @@ def embed_chunks_parallel(chunks: list[str], metadata: list[dict], batch_size: i
     if not chunks:
         return []
 
-    # Prepare batches
+    # Prepare batches - OpenAI text-embedding-3-small supports up to 2048 inputs
     batches = []
     for start in range(0, len(chunks), batch_size):
         end = min(start + batch_size, len(chunks))
         batches.append((chunks[start:end], metadata[start:end]))
 
-    # If only one batch, no need for parallelization
+    # If only one batch, no need for parallelization (most common case now)
     if len(batches) == 1:
         return _embed_batch(batches[0][0], batches[0][1], get_openai_client())
 
@@ -121,18 +124,36 @@ def embed_chunks_parallel(chunks: list[str], metadata: list[dict], batch_size: i
 
 # stores vectors in pinecone based on a batch limit
 def store_in_pinecone(vectors, batch_limit=100):
+    """
+    Store vectors in Pinecone with parallel batch upserts.
+
+    Optimizations:
+    - Parallel upserts for multiple batches
+    - batch_limit=100 is Pinecone's recommended max per upsert
+    """
     index_name = os.environ.get("PINECONE_INDEX_NAME")
     index = get_pinecone_client().Index(index_name)
 
-    upsert_data = []
-    for vector_data in vectors:
-        upsert_data.append(
-            (vector_data["id"], vector_data["values"], vector_data["metadata"])
-        )
+    # Convert to upsert format
+    upsert_data = [
+        (v["id"], v["values"], v["metadata"])
+        for v in vectors
+    ]
 
-        if len(upsert_data) >= batch_limit:
-            index.upsert(vectors=upsert_data)
-            upsert_data = []
+    # Split into batches
+    batches = [
+        upsert_data[i:i + batch_limit]
+        for i in range(0, len(upsert_data), batch_limit)
+    ]
 
-    if upsert_data:
-        index.upsert(vectors=upsert_data)
+    # If only one batch, upsert directly
+    if len(batches) == 1:
+        index.upsert(vectors=batches[0])
+        return
+
+    # Parallel upserts for multiple batches
+    def upsert_batch(batch):
+        index.upsert(vectors=batch)
+
+    with ThreadPoolExecutor(max_workers=min(4, len(batches))) as executor:
+        list(executor.map(upsert_batch, batches))

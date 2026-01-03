@@ -168,38 +168,36 @@ def merge_tables_into_pages(pages_text: list[str], tables_by_page: dict[int, lis
 def extract_text_from_pdf_fast(pdf_path: Path) -> list[str]:
     """
     Fast PDF text extraction optimized for speed.
-    Uses pypdf directly which is 10-50x faster than unstructured hi_res.
-    Falls back to OCR only if pypdf fails completely.
+
+    Optimizations:
+    - Tries pypdf first without type detection (saves ~100ms)
+    - Only falls back to OCR if pypdf extraction is empty/fails
+    - Minimal logging
     """
-    pdf_type = detect_pdf_type(pdf_path)
     pages_text = []
 
-    # For text-based PDFs, pypdf is fast and accurate
-    if pdf_type == "text-based":
-        try:
-            pages_text = extract_text_from_pdf(pdf_path)
-            pages_text = validate_extracted_text(pages_text, pdf_path)
-            logger.info(f"{pdf_path.name}: Fast extraction with pypdf succeeded")
-            return pages_text
-        except Exception as e:
-            logger.warning(f"pypdf failed for {pdf_path.name}: {e}")
-            pages_text = []
+    # Try pypdf first - works for most research papers
+    try:
+        pages_text = extract_text_from_pdf(pdf_path)
+        pages_text = validate_extracted_text(pages_text, pdf_path)
+        return pages_text
+    except NoTextExtractedError:
+        # PDF is likely scanned, try OCR
+        pass
+    except Exception:
+        # pypdf failed for other reasons, try OCR
+        pass
 
-    # Only use OCR for scanned PDFs or when pypdf fails
-    if not pages_text:
-        try:
-            logger.info(f"{pdf_path.name}: Attempting OCR extraction...")
-            pages_text = extract_with_ocr(pdf_path)
-            pages_text = validate_extracted_text(pages_text, pdf_path)
-            logger.info(f"{pdf_path.name}: Successfully extracted with OCR")
-        except Exception as e:
-            logger.error(f"OCR failed for {pdf_path.name}: {e}")
-            raise PDFParsingError(
-                f"Could not extract text from {pdf_path.name}",
-                pdf_path.name
-            )
-
-    return pages_text
+    # Fallback to OCR for scanned PDFs
+    try:
+        pages_text = extract_with_ocr(pdf_path)
+        pages_text = validate_extracted_text(pages_text, pdf_path)
+        return pages_text
+    except Exception as e:
+        raise PDFParsingError(
+            f"Could not extract text from {pdf_path.name}",
+            pdf_path.name
+        )
 
 
 # extract text from PDF with multiple fallback strategies (original - slower but more robust)
