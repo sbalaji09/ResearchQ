@@ -1,19 +1,12 @@
-# Backend Dockerfile for Render/Railway deployment
-FROM python:3.13-slim
+# Lightweight Backend Dockerfile for Render/Railway deployment
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies (including OpenCV requirements for unstructured)
-RUN apt-get update && apt-get install -y \
+# Install minimal system dependencies
+# Only what's needed for pdfplumber and basic operations
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libgl1 \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
-    libgomp1 \
-    poppler-utils \
-    tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend requirements and install

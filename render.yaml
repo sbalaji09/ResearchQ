@@ -7,6 +7,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
+    plan: starter  # Required: 512MB free tier is not enough, need at least Starter ($7/mo) with 1GB RAM
     healthCheckPath: /health
     envVars:
       - key: OPENAI_API_KEY

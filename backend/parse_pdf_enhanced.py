@@ -3,12 +3,44 @@ from pathlib import Path
 from typing import Optional
 import logging
 
-# PDF libraries
+# PDF libraries - core (always available)
 from pypdf import PdfReader
 import pdfplumber
-from pdf2image import convert_from_path
-import pytesseract
-from unstructured.partition.pdf import partition_pdf
+
+# Optional heavy dependencies - only imported when needed
+_pdf2image = None
+_pytesseract = None
+_partition_pdf = None
+
+def _get_pdf2image():
+    global _pdf2image
+    if _pdf2image is None:
+        try:
+            from pdf2image import convert_from_path
+            _pdf2image = convert_from_path
+        except ImportError:
+            _pdf2image = False
+    return _pdf2image if _pdf2image else None
+
+def _get_pytesseract():
+    global _pytesseract
+    if _pytesseract is None:
+        try:
+            import pytesseract
+            _pytesseract = pytesseract
+        except ImportError:
+            _pytesseract = False
+    return _pytesseract if _pytesseract else None
+
+def _get_partition_pdf():
+    global _partition_pdf
+    if _partition_pdf is None:
+        try:
+            from unstructured.partition.pdf import partition_pdf
+            _partition_pdf = partition_pdf
+        except ImportError:
+            _partition_pdf = False
+    return _partition_pdf if _partition_pdf else None
 
 from exceptions import *
 from parse_pdf import extract_text_from_pdf
@@ -65,6 +97,10 @@ def detect_pdf_type(pdf_path: Path) -> str:
 
 # this function extracts text from a PDF using Unstructured, grouped by page
 def extract_with_unstructured(pdf_path: Path) -> list[str]:
+    partition_pdf = _get_partition_pdf()
+    if not partition_pdf:
+        raise ImportError("unstructured is not installed")
+
     elements = partition_pdf(
         filename=str(pdf_path),
         strategy="hi_res",
@@ -76,7 +112,7 @@ def extract_with_unstructured(pdf_path: Path) -> list[str]:
     for el in elements:
         page_num = getattr(el, "page_number", 1) or 1
         pages_dict[page_num].append(str(el))
-    
+
     if not pages_dict:
         logger.warning(f"No elements returned by Unstructured for {pdf_path.name}")
         return []
@@ -103,6 +139,12 @@ def extract_with_unstructured(pdf_path: Path) -> list[str]:
 
 # this function reads the actual image of the page and returns a list of strings with each one representing a page
 def extract_with_ocr(pdf_path: Path) -> list[str]:
+    convert_from_path = _get_pdf2image()
+    pytesseract = _get_pytesseract()
+
+    if not convert_from_path or not pytesseract:
+        raise ImportError("pdf2image or pytesseract is not installed")
+
     images = convert_from_path(pdf_path, dpi=300)
     str_list = []
 
@@ -188,11 +230,17 @@ def extract_text_from_pdf_fast(pdf_path: Path) -> list[str]:
         # pypdf failed for other reasons, try OCR
         pass
 
-    # Fallback to OCR for scanned PDFs
+    # Fallback to OCR for scanned PDFs (if available)
     try:
         pages_text = extract_with_ocr(pdf_path)
         pages_text = validate_extracted_text(pages_text, pdf_path)
         return pages_text
+    except ImportError:
+        # OCR not available - this is fine for most text-based PDFs
+        raise PDFParsingError(
+            f"Could not extract text from {pdf_path.name}. The PDF may be scanned/image-based and OCR is not available.",
+            pdf_path.name
+        )
     except Exception as e:
         raise PDFParsingError(
             f"Could not extract text from {pdf_path.name}",
