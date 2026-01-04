@@ -11,7 +11,7 @@ if env_path.exists():
 import json
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pinecone import Pinecone
@@ -303,8 +303,8 @@ async def health():
 @app.post("/upload", response_model=UploadResponse)
 async def upload_pdf(
   file: UploadFile = File(...),
-  domain: Optional[str] = None,
-  session_id: Optional[str] = None
+  domain: Optional[str] = Form(None),
+  session_id: Optional[str] = Form(None)
 ):
   if file.content_type not in ("application/pdf", "application/x-pdf"):
     raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
@@ -343,6 +343,7 @@ async def upload_pdf(
 
     # Track this paper in the session for cleanup
     session.add_pdf(pdf_id)
+    print(f"[UPLOAD] Added pdf_id={pdf_id} to session={session.session_id}, session now has: {session.pdf_ids}")
   except HTTPException:
     raise
   except Exception as e:
@@ -503,9 +504,13 @@ async def cleanup_session(payload: SessionCleanupRequest):
   Called when user leaves the page to free up Pinecone storage.
   """
   session_id = payload.session_id
+  print(f"[CLEANUP] Received cleanup request for session: {session_id}")
+
   pdf_ids = session_store.get_session_pdfs(session_id)
+  print(f"[CLEANUP] Found {len(pdf_ids)} papers in session: {pdf_ids}")
 
   if not pdf_ids:
+    print(f"[CLEANUP] No papers found for session {session_id}")
     return SessionCleanupResponse(
       status="success",
       papers_deleted=0,
@@ -531,6 +536,8 @@ async def cleanup_session(payload: SessionCleanupRequest):
 
   # Remove the session
   session_store.delete_session(session_id)
+
+  print(f"[CLEANUP] Successfully deleted {deleted_count} papers for session {session_id}")
 
   return SessionCleanupResponse(
     status="success",

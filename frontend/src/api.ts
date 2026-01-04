@@ -123,8 +123,12 @@ export async function uploadPaper(file: File, sessionId?: string): Promise<Uploa
 // clean up session papers when user leaves
 export function cleanupSession(sessionId: string): void {
   // Use sendBeacon for reliable delivery on page unload
-  const data = JSON.stringify({ session_id: sessionId });
-  navigator.sendBeacon(`${BASE_URL}/session/cleanup`, data);
+  // Must use Blob with correct content-type for FastAPI to parse JSON
+  const blob = new Blob(
+    [JSON.stringify({ session_id: sessionId })],
+    { type: 'application/json' }
+  );
+  navigator.sendBeacon(`${BASE_URL}/session/cleanup`, blob);
 }
 
 // Alternative cleanup using fetch (for manual cleanup)
